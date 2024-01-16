@@ -1,0 +1,35 @@
+version: '3.9'
+services:
+  loadbalancer:
+    build: ./loadbalancer
+    image: loadbalancer
+    container_name: loadbalancer
+    ports:
+      - "5000:5001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    privilged: true
+    networks:
+      net1:
+        aliases: 
+          - loadbalancer
+    environment:
+      VAR1 : Value1
+
+  
+
+  server:
+    build: ./server
+    image: server
+    container_name: server0
+    networks:
+      net1:
+        aliases: 
+          - server
+    #environment:
+      #PERSIST : ${PERSISTENCE_MODE}
+      #SID : server0
+
+  
+    
+    
