@@ -10,7 +10,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     privilged: true
     networks:
-      net1:
+      network1:
         aliases: 
           - loadbalancer
     environment:
@@ -21,15 +21,17 @@ services:
   server:
     build: ./server
     image: server
-    container_name: server0
+    container_name: server
     networks:
-      net1:
+      network1:
         aliases: 
           - server
     #environment:
       #PERSIST : ${PERSISTENCE_MODE}
       #SID : server0
 
-  
+  networks:
+    network1:
+      name: net1
     
     
