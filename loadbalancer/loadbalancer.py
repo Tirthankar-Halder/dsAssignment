@@ -21,8 +21,8 @@ def index():
 
 @app.route('/rep', methods=['GET'])
 def rep():
-    for replica in replicas:
-        os.system(f"sudo docker run --name {replica} -e 'SERVER_ID={replica}' ")
+    # for replica in replicas:
+        # os.system(f"sudo docker run --name {replica} -e 'SERVER_ID={replica}' ")
     response_json = {
 
         "message": {
@@ -53,7 +53,7 @@ def add_replicas():
             replica = f"RandomServer{random.randint(1, 100)}"
         replicas.append(replica)
         consistent_hash_map.add_server_container(int(replica[1:]))
-        os.system(f"sudo docker run --name {replica} -e 'SERVER_ID={replica}' ")
+        # os.system(f"sudo docker run --name {replica} -e 'SERVER_ID={replica}' ")
 
     response_json = {
         "message": {
@@ -86,9 +86,9 @@ def remove_replicas():
         else:
             replica = random.choice(replicas)
         removed_replicas.append(replica)
-        os.system(f"sudo docker stop {replica} && sudo docker rm {replica}")
+        # os.system(f"sudo docker stop {replica} && sudo docker rm {replica}")
         replicas.remove(replica)
-        consistent_hash_map.remove_server_container(replica)
+        consistent_hash_map.remove_server_container(int(replica[1:]))
 
     response_json = {
         "message": {
@@ -103,13 +103,13 @@ def remove_replicas():
 @app.route('/<path>', methods=['GET'])
 def route_request(path):
     replica = consistent_hash_map.get_server_container(hash(path))
-    
-    res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e VAR1=v1 -e VAR2=v2 -d server:latest").read()
 
-    if len(res)==0:
-        print(f"Unable to start {replica}")
-    else:
-        print(f"successfully started {replica}")
+    # res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e VAR1=v1 -e VAR2=v2 -d server:latest").read()
+
+    # if len(res)==0:
+    #     print(f"Unable to start {replica}")
+    # else:
+    #     print(f"successfully started {replica}")
 
     if replica in replicas:
         url = f"{replica}:5000/{path}"
