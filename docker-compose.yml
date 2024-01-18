@@ -18,15 +18,15 @@ services:
 
   
 
-  server:
-    build: ./server
-    image: server
-    container_name: server
-    networks:
-      network1:
-        aliases: 
-          - server
-    #environment:
+  # server:
+  #   build: ./server
+  #   image: server
+  #   container_name: server
+  #   networks:
+  #     network1:
+  #       aliases: 
+  #         - server
+  #   #environment:
       #PERSIST : ${PERSISTENCE_MODE}
       #SID : server0
 
