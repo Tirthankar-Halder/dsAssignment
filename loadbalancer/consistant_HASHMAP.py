@@ -15,27 +15,33 @@ class ConsistentHashMap:
         for j in range(self.num_virtual_servers):
             virtual_server_id = f"{server_container_id}-{j}"
             slot = self.virtual_server_hash_function(server_container_id, j)
+            i=0
             while self.hash_map[slot] is not None:
-                slot = (slot + 1) % self.total_slots  # Linear probing
+                slot = (slot + 1) % self.total_slots      # Linear probing
+                slot = (slot + i**2) % self.total_slots   #quadriatic probing
+                i+=1
             self.hash_map[slot] = virtual_server_id
 
     def get_server_container(self, request_id):
         slot = self.hash_function(request_id)
+        i = 0
         while self.hash_map[slot] is None:
             slot = (slot + 1) % self.total_slots  # Linear probing
+            slot = (slot + i**2) % self.total_slots #quadriatic probing
+            i+=1
         return self.hash_map[slot].split("-")[0]  # Extracting the server container ID
 
 # Example usage
 consistent_hash_map = ConsistentHashMap(3, 512, 9)
 
-# # Adding server containers
+# Adding server containers
 # for i in range(consistent_hash_map.num_containers):
 #     consistent_hash_map.add_server_container(i)
-# replicas = ["server 1","server 2","server 3"]
-# for replica in replicas:
-#     consistent_hash_map.add_server_container(int(replica[7]))
-# # Mapping requests to server containers
-requests = [5, 12, 25, 37, 50]
-for request_id in requests:
-    server_container_id = consistent_hash_map.get_server_container(request_id)
-    print(f"Request {request_id} is mapped to Server Container {server_container_id}")
+# # replicas = ["server 1","server 2","server 3"]
+# # for replica in replicas:
+# #     consistent_hash_map.add_server_container(int(replica[7]))
+# # # Mapping requests to server containers
+# requests = [5, 12, 25, 37, 50]
+# for request_id in requests:
+#     server_container_id = consistent_hash_map.get_server_container(request_id)
+#     print(f"Request {request_id} is mapped to Server Container {server_container_id}")
