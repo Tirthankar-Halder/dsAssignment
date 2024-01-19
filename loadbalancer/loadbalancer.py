@@ -14,6 +14,7 @@ replicas = [f"Server {i}" for i in range(1, NUM_CONTAINERS + 1)]
 
 for replica in replicas:
     consistent_hash_map.add_server_container(int(replica[7]))
+ 
 
 @app.route('/')
 def index():
