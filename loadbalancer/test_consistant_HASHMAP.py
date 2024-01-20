@@ -11,11 +11,18 @@ class TestConsistentHashMap(unittest.TestCase):
         print("Running tearDown method...")
         
     def test_hash_function(self):
-        self.assertEquals(1,1)
+        self.assertEquals(self.hasher.hash_function(),)
+        self.assertEquals(self.hasher.hash_function(),)
+        self.assertEquals(self.hasher.hash_function(),)
+        self.assertEquals(self.hasher.hash_function(),)
     def test_virtual_server_hash_function(self):
-        self.assertEquals(1,1)
+        self.assertEquals(self.hasher.virtual_server_hash_function(),)
+        self.assertEquals(self.hasher.virtual_server_hash_function(),)
+        self.assertEquals(self.hasher.virtual_server_hash_function(),)
+        self.assertEquals(self.hasher.virtual_server_hash_function(),)
+
     def test_add_server_container(self):
-        self.assertEquals(1,1)
+        self.assertEquals(self.hasher.add_server_container(),)
     def test_remove_server_container(self):
         self.assertEquals(1,1)
     def test_get_server_container(self):
