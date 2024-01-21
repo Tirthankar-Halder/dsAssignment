@@ -7,4 +7,5 @@ RUN pip install -r requrirements.txt
 COPY . /app
 # Set environment variable for server ID
 ENV SERVER_ID=""
+
 CMD ["python3","./server.py"]

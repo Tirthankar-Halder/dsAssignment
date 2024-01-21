@@ -8,15 +8,15 @@ def index():
     return "Welcome to HELLO WORLD"
 
 
-@app.route('/<name>')
-def print_name(name):
-    return 'Hi, {}'.format(name)
+# @app.route('/<name>')
+# def print_name(name):
+#     return 'Hi, {}'.format(name)
 
-@app.route('/home/',methods = ['GET'])
+@app.route('/home',methods = ['GET'])
 def home():
     server_id = os.getenv('SERVER_ID', 'Unknown')
     response_json = {
-        "message": f"Hello from server : {server_id}",
+        "message": f"Hello from : {server_id}",
         "status" : "successful"
         }
     return jsonify(response_json),200
@@ -27,4 +27,6 @@ def heartbeats():
 
     
 if  __name__ == '__main__':
-    app.run(debug=True,host='0.0.0.0')
+    # app.run(debug=True,host='0.0.0.0')
+    app.run(host='0.0.0.0',port=5000,debug=False)
+

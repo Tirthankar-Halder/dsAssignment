@@ -5,10 +5,12 @@ services:
     image: loadbalancer
     container_name: loadbalancer
     ports:
-      - "5000:5001"
+      - "5000:5000"
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    privilged: true
+    privileged: true
+    # depends_on:
+    #   - server
     networks:
       network1:
         aliases: 
@@ -26,12 +28,12 @@ services:
   #     network1:
   #       aliases: 
   #         - server
-  #   #environment:
-      #PERSIST : ${PERSISTENCE_MODE}
-      #SID : server0
+  #   # #environment:
+    #   PERSIST : ${PERSISTENCE_MODE}
+    #   SID : server0
 
-  networks:
-    network1:
-      name: net1
+networks:
+  network1:
+    name: net1
     
     
