@@ -9,7 +9,7 @@ import time
 
 app = Flask(__name__)
 
-NUM_CONTAINERS = 2
+NUM_CONTAINERS = 3
 TOTAL_SLOTS = 512
 NUM_VIRTUAL_SERVERS = 9
 
