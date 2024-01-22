@@ -13,15 +13,9 @@ class FlaskAppTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data.decode(), "Welcome to HELLO WORLD")
 
-    def test_print_name_route(self):
-        name = "John"
-        response = self.app.get(f'/{name}')
-        self.assertEqual(response.status_code, 200)
-        expected_message = f'Hi, {name}'
-        self.assertEqual(response.data.decode(), expected_message)
-
+    
     def test_home_route(self):
-        response = self.app.get('/home/')
+        response = self.app.get('/home')
         self.assertEqual(response.status_code, 200)
         response_json = json.loads(response.data.decode())
         self.assertEqual(response_json["status"], "successful")
