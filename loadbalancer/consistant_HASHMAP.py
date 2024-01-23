@@ -41,11 +41,9 @@ class ConsistentHashMap:
             for slot in range(0,512):
                 if self.hash_map[slot] is not None:
                     if server_container_Name_id in self.hash_map[slot]:
+                        self.logger.info(f"Removed server container {self.hash_map[slot]} from slot {slot}")
                         self.hash_map[slot]=None
 
-            # Remove the virtual server from the hash map
-            self.hash_map[slot] = None
-            self.logger.info(f"Removed server container {virtual_server_id} from slot {slot}")
         # return self.hash_map[slot].split("-")[0]
 
     def get_server_container(self, request_id):
