@@ -45,10 +45,6 @@ server_thread = threading.Thread(target=replica_status,args=(replicas,))
 
 server_thread.start()
 
-
-
-
-
 @app.route('/')
 def index():
     return "Welcome to HELLO WORLD"
