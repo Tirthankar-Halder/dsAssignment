@@ -1,3 +1,4 @@
+import logging
 import re
 import  random
 class ConsistentHashMap:
@@ -6,7 +7,9 @@ class ConsistentHashMap:
         self.total_slots = total_slots
         self.num_virtual_servers = num_virtual_servers
         self.hash_map = [None] * total_slots
-
+        logging.basicConfig(level=logging.INFO)
+        self.logger = logging.getLogger('LoadBalancer.ConsistentHashmap')
+    
     def hash_function(self, i):
         return (i**2 + 2 * i + 17) % self.total_slots
 
@@ -30,22 +33,28 @@ class ConsistentHashMap:
                 i+=1#random.randint(1,1000)
 
             self.hash_map[slot] = virtual_server_id
+            self.logger.info(f"Added server container {virtual_server_id} to slot {slot}")
+    
     def remove_server_container(self, server_container_Name_id):
         for j in range(self.num_virtual_servers):
             #regular expression is used to find the id in diverse user input of the server name
             for slot in range(0,512):
                 if self.hash_map[slot] is not None:
                     if server_container_Name_id in self.hash_map[slot]:
+                        self.logger.info(f"Removed server container {self.hash_map[slot]} from slot {slot}")
                         self.hash_map[slot]=None
 
-            # Remove the virtual server from the hash map
         # return self.hash_map[slot].split("-")[0]
 
     def get_server_container(self, request_id):
         slot = self.hash_function(request_id)
         while self.hash_map[slot] is None:
             slot = (slot + 1) % self.total_slots  # Linear probing
-        return self.hash_map[slot].split("-")[0]  # Extracting the server container ID
+        
+        server_container_id = self.hash_map[slot].split("-")[0]
+        self.logger.info(f"Request {request_id} is mapped to Server Container {server_container_id}")
+
+        return server_container_id
     
 # Example usage
 # consistent_hash_map = ConsistentHashMap(3, 512, 9)
