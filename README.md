@@ -70,3 +70,9 @@ physical server instances equally.
 
 
  # Testing
+ 
+Test results are as follows:
+ 
+<p align="center">
+      <img src="AnalysisServerRemove.jpg" width="70%"/>
+</p>
