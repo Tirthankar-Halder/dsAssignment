@@ -19,12 +19,20 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 </ol>
 
 # Assumptions
-
++ For the server ids we have use six digit random numbers which servers the purpose of non cluster allocation of virtual servers.
++ For removing servers, if the no.of servers are more than the length of Hostname then random servers are chosen and removed.
++ For analisys part when servers are increasing, we put a 10 second halt.
++ Statistically, K = log (M) (K = no. of virtual server, M = no. of slots.) virtual servers work best to distribute the load across the
+physical server instances equally.
++ In case of faliure of server, we have manually down the server.
 
 
 
 # Challenges
 
++ Sending the request to the load-balancer and tracking the server load was quite challenging.
++ However we have noticed that a large number of server container allocation might affect the performence of the system.
++ In real case scenario servers may get down for various reasons but in our case servers are running on docker container it is challenging to down them automatically. 
 
 
 
@@ -59,3 +67,6 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
     sudo chmod +x /usr/local/bin/docker-compose
     
     sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
+
+
+ # Testing
