@@ -1,6 +1,8 @@
 Implimenting a Customizable Load Balancer
 
-   ![image](https://github.com/Tirthankar-Halder/dsAssignment/assets/64760892/f8df9a7b-1fe3-4dcf-8dfb-45c7c33e1a71)
+<p align="center">
+      <img src="assets/main_fig.png" width="70%"/>
+</p>
 
 # Design
 
@@ -60,6 +62,7 @@ physical server instances equally.
     sudo apt-get update
 
     sudo apt-get install docker-ce docker-ce-cli containerd.io
+    
 
 ### 2. Docker-compose standalone [version v2.15.1]
     sudo curl -SL https://github.com/docker/compose/releases/download/v2.15.1/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
@@ -68,11 +71,40 @@ physical server instances equally.
     
     sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
 
+# Installation Steps
+### Deploy Sever
+#### Build the Server Docker Image
 
- # Testing
- 
+    cd ./server/ && sudo docker build -t server .
+
+### Deploy Loadbalancer
+#### Build the LoadBalancer Docker Image
+    make build
+#### Run the LoadBalancer Docker Image
+    make up
+
+
+### Remove/Stop Loadbalancer/Server
+    make down
+
+
+
+# Testing
+
+Initially, 10,000 asynchronous requests were sent to the load balancer, which distributed them among the existing three servers. Subsequently, the number of servers was increased by one, and for each iteration, another 10,000 asynchronous requests were sent to the load balancer. Upon analyzing the load balancer's performance, it was observed that it efficiently distributed the requests, effectively managing the network load. 
++ ### Increasing no of Servers by one:
+The bar plot visually depicts the average number of requests handled by each server.
 Test results are as follows:
- 
 <p align="center">
-      <img src="AnalysisServerRemove.jpg" width="70%"/>
+      <img src="results/AnalysisServerRemove.jpg" width="50%"/>
 </p>
+
++ ### Decreasing no of Servers by one:
+<p align="center">
+      <img src="results/AnalysisServerAddition.jpg" width="50%"/>
+</p>
+
+
+# Contact Me
+
+This is Assignment 1 of CS60002: Distributed Systems course in IIT Kharagpur, taught by [Dr. Sandip Chakraborty](https://cse.iitkgp.ac.in/~sandipc/).
