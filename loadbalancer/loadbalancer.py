@@ -3,6 +3,9 @@ import random
 import requests
 import os
 from consistant_HASHMAP import ConsistentHashMap  
+# from consistant_HASHMAP_1 import ConsistentHashMap  
+# from consistant_HASHMAP_2 import ConsistentHashMap  
+# from consistant_HASHMAP_3 import ConsistentHashMap  
 # import subprocess
 import threading
 import time
