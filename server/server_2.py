@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import sqlite3
-conn = sqlite3.connect('studTable.db')
+
 
 app = Flask(__name__)
 
@@ -9,18 +9,21 @@ app = Flask(__name__)
 def initialize_shards():
     # Implement initialization logic here
     # Parse request payload
+    conn = sqlite3.connect('studTable.db')
     payload = request.json
     schema = payload.get('schema')
     shards = payload.get('shards')
-    sh=[0 for i in range(len(shards))]
-
+    msg=""
     cursor = conn.cursor()
-    for sh,i in shards,range(len(shards)):
-        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{sh}'")
-        # Fetch one row, if the table exists, it will return a non-empty result
-        result_sh = cursor.fetchone()
-        if result_sh:
-            sh[i]=1
+    cursor.execute(f"SELECT Server_id, GROUP_CONCAT(Shard_id) AS Shards FROM MapT GROUP BY Server_id;")
+    result_server=cursor.fetchall()
+    for row in result_server:
+        server, shs = row
+        sh = shs.split(',')
+        for shs in sh:
+            if shs in shards:
+                msg+=server+':'+shs+','
+    msg+="configured"
         
         """ else :
             cursor.execute('''CREATE TABLE IF NOT EXISTS ? (
@@ -37,7 +40,7 @@ def initialize_shards():
     conn.close()
     
     return jsonify({
-        "message": "",
+        "message": msg,
         "status": "success"
     }), 200
 
