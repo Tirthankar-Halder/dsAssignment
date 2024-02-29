@@ -1,50 +1,29 @@
 from flask import Flask, request, jsonify
 import sqlite3
-conn = sqlite3.connect('studTable.db')
-
-app = Flask(__name__)
+import os
+import table as db
+app = Flask(__name__,template_folder='.')
 
 # Endpoint to initialize shard tables in the server database
 @app.route('/config', methods=['POST'])
 def initialize_shards():
-    # Implement initialization logic here
-    # Parse request payload
+    server_id = os.getenv('SERVER_ID', 'Unknown')
     payload = request.json
-    schema = payload.get('schema')
-    shards = payload.get('shards')
-    sh=[0 for i in range(len(shards))]
-
-    cursor = conn.cursor()
-    for sh,i in shards,range(len(shards)):
-        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{sh}'")
-        # Fetch one row, if the table exists, it will return a non-empty result
-        result_sh = cursor.fetchone()
-        if result_sh:
-            sh[i]=1
-        
-        """ else :
-            cursor.execute('''CREATE TABLE IF NOT EXISTS ? (
-                            ? ? PRIMARY KEY AUTOINCREMENT,
-                            ? ? NOT NULL,
-                            ? ? NOT NULL,
-                            CONSTRAINT id_range CHECK (? BETWEEN 000000 AND 1000000),
-                        )''',(sh,schema["columns"][0],'INTEGER' if schema["dtypes"][0]=="Number" else 'INT', schema["columns"][1],
-                             'TEXT' if schema["dtypes"][1]=="string" else 'TEXT',schema["columns"][2],'TEXT' if schema["dtypes"][2]=="string" else 'FLOAT',schema["columns"][0]))
-            cursor.commit() """
-        cursor.execute(f"SELECT Server_id FROM MapT WHERE ")
-    
-    cursor.close()
+    student_db = db.StudentDatabase()
+    conn = student_db.create_connection()
+    msg=server_id+':'
+    msg+=str(student_db.create_table(conn,payload))
+    msg+='configured'
     conn.close()
-    
     return jsonify({
-        "message": "",
+        "message": msg,
         "status": "success"
     }), 200
 
 # Endpoint to send heartbeat responses
 @app.route('/heartbeat', methods=['GET'])
 def heartbeat():
-    return '', 200
+    return jsonify({"Response": " "}),200
 
 # Endpoint to copy data entries corresponding to one shard table in the server container
 @app.route('/copy', methods=['GET'])
@@ -68,12 +47,9 @@ def read_data():
     # Implement reading logic here
     # Parse request payload
     payload = request.json
-    shard_id = payload.get('shard')
-    stud_id_range = payload.get('Stud_id')
-    
-    # Read data for specified shard and range of Stud ids
-    # Implement your logic here
-    
+    student_db = db.StudentDatabase()
+    conn = student_db.create_connection()
+    data=student_db.read(conn,payload)
     return jsonify({
         "data": data,  # Provide the actual data read from the database
         "status": "success"
@@ -85,52 +61,40 @@ def write_data():
     # Implement writing logic here
     # Parse request payload
     payload = request.json
-    shard_id = payload.get('shard')
-    curr_idx = payload.get('curr_idx')
-    data = payload.get('data')
-    
-    # Write data for specified shard
-    # Implement your logic here
-    
+    student_db = db.StudentDatabase()
+    conn = student_db.create_connection()
+    message,curr_idx=student_db.write(conn,payload)
     return jsonify({
-        "message": "Data entries added",
+        "message": message,  # Provide the actual data read from the database
+        "current_idx": curr_idx,
         "status": "success"
     }), 200
-
+    
 # Endpoint to update a particular data entry in a shard in a particular server container
 @app.route('/update', methods=['PUT'])
 def update_data():
-    # Implement updating logic here
-    # Parse request payload
     payload = request.json
-    shard_id = payload.get('shard')
-    stud_id = payload.get('Stud_id')
-    data = payload.get('data')
-    
-    # Update data for specified shard and Stud id
-    # Implement your logic here
-    
+    student_db = db.StudentDatabase()
+    conn = student_db.create_connection()
+    message=student_db.update(conn,payload)
     return jsonify({
-        "message": "Data entry updated",
+        "message": message,
         "status": "success"
     }), 200
+
 
 # Endpoint to delete a particular data entry in a shard in a particular server container
 @app.route('/del', methods=['DELETE'])
 def delete_data():
-    # Implement deletion logic here
-    # Parse request payload
     payload = request.json
-    shard_id = payload.get('shard')
-    stud_id = payload.get('Stud_id')
-    
-    # Delete data for specified shard and Stud id
-    # Implement your logic here
-    
+    student_db = db.StudentDatabase()
+    conn = student_db.create_connection()
+    message=student_db.update(conn,payload)
     return jsonify({
-        "message": "Data entry removed",
+        "message": message,
         "status": "success"
     }), 200
 
-if __name__ == '__main__':
-    app.run(debug=True)  # Run the Flask app in debug mode
+if  __name__ == '__main__':
+    # app.run(debug=True,host='0.0.0.0')
+    app.run(host='0.0.0.0',port=5000,debug=True)

@@ -1,67 +1,141 @@
-from flask import Flask, request, jsonify
 import sqlite3
 import random
 import string
 
-# Function to generate random student name
-def generate_random_name():
-    return ''.join(random.choices(string.ascii_uppercase, k=5))
+class StudentDatabase:
+    def __init__(self, db_name='studTable.db'):
+        self.db_name = db_name
+    def create_connection(self):
+        conn = sqlite3.connect(self.db_name)
+        return conn
+    def create_table(self,conn,payload):
+        payload = payload
+        schema = payload.get('schema')
+        shards = payload.get('shards')
+        cursor = conn.cursor()
+        for sh in shards:
+            cursor.execute(f'''CREATE TABLE IF NOT EXISTS {sh}(
+                                {schema["columns"][0]} INTEGER PRIMARY KEY NOT NULL,
+                                {schema["columns"][1]} TEXT NOT NULL,
+                                {schema["columns"][2]} TEXT NOT NULL,
+                                CONSTRAINT id_range CHECK ({schema["columns"][0]} BETWEEN 000000 AND 1000000)
+                            )''')
+            conn.commit()
+        cursor.close()
+        result=shards
+        return result
+    def check_table(self,conn,table):
+    	 cursor=conn.cursor()
+    	 cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' and name={table} ")
+    	 check=cursor.fetchone()
+    	 cursor.close()
+    	 return check
+    def create_meta_tabel(self,conn): #this is not needed 
+        cursor = conn.cursor()
+        cursor.execute('''CREATE TABLE IF NOT EXISTS ShardT (
+                Stud_id_low INTEGER PRIMARY KEY,
+                Shard_id TEXT NOT NULL,
+                Shard_size INTEGER NOT NULL,
+                valid_idx INTEGER  ,
+                CONSTRAINT  v_idx CHECK (valid_idx BETWEEN 000000 AND 1000000 )
+            )''')
+        conn.commit()
+    
+        cursor.execute('''CREATE TABLE IF NOT EXISTS MapT (
+                Shard_id TEXT NOT NULL,
+                Server_id TEXT NOT NULL,
+                FOREIGN KEY (Shard_id) REFERENCES ShardT(Shard_id)       
+            )''')
+        conn.commit()
+        cursor.close()
 
-# Function to generate random student marks
-def generate_random_marks():
-    return random.randint(0, 100)
+    def generate_random_name(self):
+        return ''.join(random.choices(string.ascii_uppercase, k=5))
 
-def create_connection():
-    conn = sqlite3.connect('studTable.db')
-    return conn
+    def generate_random_marks(self):
+        return random.randint(0, 100)
 
-def create_table(conn):
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS StudT (
-                        Stud_id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        Stud_name TEXT NOT NULL,
-                        Stud_marks FLOAT NOT NULL,
-                        CONSTRAINT id_range CHECK (Stud_id BETWEEN 000000 AND 1000000),
-                        CONSTRAINT stu_m CHECK (Stud_marks BETWEEN 0 AND 100)
-                      )''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS ShardT (
-            Stud_id_low INTEGER PRIMARY KEY,
-            Shard_id TEXT NOT NULL,
-            Shard_size INTEGER NOT NULL,
-            valid_idx INTEGER NOT NULL DEFAULT=Stud_id_low+Sharf_size,
-            CONSTRAINT  v_idx CHECK (valid_idx BETWEEN 000000 AND 1000000 ),
-            FOREIGN KEY (Stud_id_low) REFERENCES StudT(Stud_id)
-        )''')
-    cursor.execute('''CREATE TABLE IF NOT EXISTS MapT (
-            Shard_id TEXT NOT NULL,
-            Server_id TEXT NOT NULL,
-            FOREIGN KEY (Shard_id) REFERENCES ShardT(Shard_id)       
-        )''')
-    conn.commit()
-    cursor.close()
+    def write(self, conn,payload):
+        table=payload.get('shard')
+        curr_idx=int(payload.get('curr_idx'))
+        datas=payload.get('data')
+        #check=self.check_table(conn,table)    
+        cursor = conn.cursor()
+        for data in datas:
+        	 cursor.execute("INSERT INTO {} (Stud_id, Stud_name, Stud_marks) VALUES (?,?,?)".format(table),(int(data['Stud_id']), data['Stud_name'], str(data['Stud_marks'])))
+        	 conn.commit()
+        	 curr_idx+=1
+        cursor.close()
+        message='Data entries added'
+        current_idx=curr_idx
+        return message,current_idx
+        #if(len(check)==0):
+        #	return '{table} is not created'
+        #else:
+               
+     
+    def insert_shards(self, conn,payload):   # this is not needed
+        table=payload.get['shard']
+        cursor = conn.cursor()
+        cursor.execute(f"INSERT INTO ? (Stud_id_low, Shard_id, Shard_size) VALUES (?, ?, ?)", (table,0, "sh1", 50))
+        conn.commit()
+        cursor.close()
 
-def insert_table_stu(conn,name="NULL",marks="NULL"):
-    if(name=="NULL"):
-        name=generate_random_name()
-    if(marks=="NULL"):
-        marks=generate_random_marks()
-    cursor = conn.cursor()
-    cursor.execute("INSERT INTO StudT (Stud_name,Stud_marks) values (?,?)",(name,marks))
-    conn.commit()
-    cursor.close()
+    def insert_shard_mapping(self, conn): #this is not needed
+        cursor = conn.cursor()
+        cursor.execute("INSERT INTO MapT (Shard_id, Server_id) VALUES (?, ?)", ("sh1", "Server0"))
+        conn.commit()
+        cursor.close()
 
-def show_data(conn):
-    cursor=conn.cursor()
-    cursor.execute("SELECT * from STudT")
-    listofstu = cursor.fetchall()  # Fetch all rows
-    print(listofstu)
-    cursor.close()
+    def read(self,conn,payload):
+        table=payload.get('shard')
+        low=payload['Stud_id']['low']
+        high=payload['Stud_id']['high']
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM {table} WHERE Stud_id BETWEEN {low} AND {high}")
+        listofstu = cursor.fetchall()  # Fetch all rows
+        message=[]
+        data={}
+        for i in listofstu:
+            data['Stud_id']=i[0]
+            data['Stud_name']=i[1]
+            data['Stud_marks']=i[2]
+            message.append(str(data))
+        cursor.close()
+        return message
+    def update(self,conn,payload):
+        table=payload.get('shard')
+        data=payload.get('data')
+        s_id=payload.get('Stud_id')
+        stud_id=int(data['Stud_id'])
+        stud_marks=data['Stud_marks']
+        stud_name=data['Stud_name']
+        #check=check_table(conn,table)
+        #if(len(check)==0):
+        #	return 'f{table} not found '
+        #else:
+        cursor = conn.cursor()
+        cursor.execute(f"UPDATE {table} SET Stud_id={stud_id},Stud_name={stud_name},Stud_marks={stud_marks} WHERE Stud_id={s_id}") 
+        conn.commit()
+        message=f'data entry for stud_id {Stud_id} updated'
+        return message   	 
+ 
+    def delete(self,conn,payload):
+    	table=payload.get['shard']
+    	stud_id=payload.get['Stud_id']
+    	#check=check_table(conn,table)
+    	#if(len(check)==0):
+    	#	return 'f{table} not found '
+    	#else:
+    	cursor = conn.cursor()
+    	cursor.execute(f"DELETE FROM {table} WHERE Stud_id={stud_id}")
+    	conn.commit()
+    	message=f'data entry for stud_id {Stud_id} deleted '
+    	return message
+def main():
+    student_db = StudentDatabase()
+    conn = student_db.create_connection()
+    conn.close()
 
-# Initialize the database when the application starts
-conn = create_connection()
-
-create_table(conn)
-insert_table_stu(conn)
-show_data(conn)
-
-conn.close()
+if __name__ == "__main__":
+    main()
