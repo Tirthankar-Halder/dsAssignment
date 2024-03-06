@@ -3,12 +3,15 @@ import random
 import string
 
 class StudentDatabase:
+
     def __init__(self, db_name='studTable.db'):
         self.db_name = db_name
+        
     def create_connection(self):
         conn = sqlite3.connect(self.db_name)
         return conn
-    def create_table(self,conn,payload):
+    
+    def create_table(self, conn, payload):
         payload = payload
         schema = payload.get('schema')
         shards = payload.get('shards')
@@ -22,15 +25,17 @@ class StudentDatabase:
                             )''')
             conn.commit()
         cursor.close()
-        result=shards
+        result = shards
         return result
-    def check_table(self,conn,table):
-    	 cursor=conn.cursor()
-    	 cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' and name={table} ")
-    	 check=cursor.fetchone()
-    	 cursor.close()
-    	 return check
-    def create_meta_tabel(self,conn): #this is not needed 
+    
+    def check_table(self, conn, table):
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' and name={table} ")
+        check = cursor.fetchone()
+        cursor.close()
+        return check
+    
+    def create_meta_table(self, conn): #this is not needed 
         cursor = conn.cursor()
         cursor.execute('''CREATE TABLE IF NOT EXISTS ShardT (
                 Stud_id_low INTEGER PRIMARY KEY,
@@ -55,27 +60,22 @@ class StudentDatabase:
     def generate_random_marks(self):
         return random.randint(0, 100)
 
-    def write(self, conn,payload):
-        table=payload.get('shard')
-        curr_idx=int(payload.get('curr_idx'))
-        datas=payload.get('data')
-        #check=self.check_table(conn,table)    
+    def write(self, conn, payload):
+        table = payload.get('shard')
+        curr_idx = int(payload.get('curr_idx'))
+        datas = payload.get('data')
         cursor = conn.cursor()
         for data in datas:
-        	 cursor.execute("INSERT INTO {} (Stud_id, Stud_name, Stud_marks) VALUES (?,?,?)".format(table),(int(data['Stud_id']), data['Stud_name'], str(data['Stud_marks'])))
-        	 conn.commit()
-        	 curr_idx+=1
+            cursor.execute("INSERT INTO {} (Stud_id, Stud_name, Stud_marks) VALUES (?,?,?)".format(table),(int(data['Stud_id']), data['Stud_name'], str(data['Stud_marks'])))
+            conn.commit()
+            curr_idx += 1
         cursor.close()
-        message='Data entries added'
-        current_idx=curr_idx
-        return message,current_idx
-        #if(len(check)==0):
-        #	return '{table} is not created'
-        #else:
-               
-     
-    def insert_shards(self, conn,payload):   # this is not needed
-        table=payload.get['shard']
+        message = 'Data entries added'
+        current_idx = curr_idx
+        return message, current_idx
+    
+    def insert_shards(self, conn, payload):   # this is not needed
+        table = payload.get('shard')
         cursor = conn.cursor()
         cursor.execute(f"INSERT INTO ? (Stud_id_low, Shard_id, Shard_size) VALUES (?, ?, ?)", (table,0, "sh1", 50))
         conn.commit()
@@ -86,52 +86,72 @@ class StudentDatabase:
         cursor.execute("INSERT INTO MapT (Shard_id, Server_id) VALUES (?, ?)", ("sh1", "Server0"))
         conn.commit()
         cursor.close()
-
-    def read(self,conn,payload):
-        table=payload.get('shard')
-        low=payload['Stud_id']['low']
-        high=payload['Stud_id']['high']
+    
+    def select_all_rows(self, conn, shard):
+        table = shard
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT * FROM {table}")
+        listofstu = cursor.fetchall()  # Fetch all rows
+        message = []
+        data = {}
+        for i in listofstu:
+            data['Stud_id'] = i[0]
+            data['Stud_name'] = i[1]
+            data['Stud_marks'] = i[2]
+            message.append(str(data))
+        cursor.close()
+        return message if message else []
+    
+    def copy(self, conn, shards):
+        #table = payload.get('shards')
+        print(type(shards))
+        message = []
+        
+        x=self.select_all_rows(conn,shards[0])
+        message.append(x)
+        y=self.select_all_rows(conn,shards[1])
+        
+        return message
+    
+    def read(self, conn, payload):
+        table = payload.get('shard')
+        low = payload['Stud_id']['low']
+        high = payload['Stud_id']['high']
         cursor = conn.cursor()
         cursor.execute(f"SELECT * FROM {table} WHERE Stud_id BETWEEN {low} AND {high}")
         listofstu = cursor.fetchall()  # Fetch all rows
-        message=[]
-        data={}
+        message = []
+        data = {}
         for i in listofstu:
-            data['Stud_id']=i[0]
-            data['Stud_name']=i[1]
-            data['Stud_marks']=i[2]
+            data['Stud_id'] = i[0]
+            data['Stud_name'] = i[1]
+            data['Stud_marks'] = i[2]
             message.append(str(data))
         cursor.close()
         return message
-    def update(self,conn,payload):
-        table=payload.get('shard')
-        data=payload.get('data')
-        s_id=payload.get('Stud_id')
-        stud_id=int(data['Stud_id'])
-        stud_marks=data['Stud_marks']
-        stud_name=data['Stud_name']
-        #check=check_table(conn,table)
-        #if(len(check)==0):
-        #	return 'f{table} not found '
-        #else:
+    
+    def update(self, conn, payload):
+        table = payload.get('shard')
+        data = payload.get('data')
+        s_id = payload.get('Stud_id')
+        stud_id = int(data['Stud_id'])
+        stud_marks = data['Stud_marks']
+        stud_name = data['Stud_name']
         cursor = conn.cursor()
-        cursor.execute(f"UPDATE {table} SET Stud_id={stud_id},Stud_name={stud_name},Stud_marks={stud_marks} WHERE Stud_id={s_id}") 
+        cursor.execute(f"UPDATE {table} SET Stud_id=?, Stud_name=?, Stud_marks=? WHERE Stud_id=?", (stud_id, stud_name, stud_marks, s_id))
         conn.commit()
-        message=f'data entry for stud_id {Stud_id} updated'
-        return message   	 
- 
-    def delete(self,conn,payload):
-    	table=payload.get['shard']
-    	stud_id=payload.get['Stud_id']
-    	#check=check_table(conn,table)
-    	#if(len(check)==0):
-    	#	return 'f{table} not found '
-    	#else:
-    	cursor = conn.cursor()
-    	cursor.execute(f"DELETE FROM {table} WHERE Stud_id={stud_id}")
-    	conn.commit()
-    	message=f'data entry for stud_id {Stud_id} deleted '
-    	return message
+        message = f'data entry for stud_id {s_id} updated'
+        return message
+           
+    def delete(self, conn, payload):
+        table = payload.get('shard')
+        stud_id = payload.get('Stud_id')
+        cursor = conn.cursor()
+        cursor.execute(f"DELETE FROM {table} WHERE Stud_id=?", (stud_id,))
+        conn.commit()
+        message = f'data entry for stud_id {stud_id} deleted '
+        return message
+
 def main():
     student_db = StudentDatabase()
     conn = student_db.create_connection()
