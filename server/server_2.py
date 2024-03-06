@@ -1,10 +1,13 @@
 from flask import Flask, request, jsonify
 import sqlite3
 import os
-import table as db
+import table1 as db
 app = Flask(__name__,template_folder='.')
 
 # Endpoint to initialize shard tables in the server database
+@app.route('/home' , methods =['GET'])
+def home():
+    return "Home"
 @app.route('/config', methods=['POST'])
 def initialize_shards():
     server_id = os.getenv('SERVER_ID', 'Unknown')
@@ -32,12 +35,15 @@ def copy_data():
     # Parse request payload
     payload = request.json
     shards = payload.get('shards')
-    
+    student_db = db.StudentDatabase()
+    conn = student_db.create_connection()
+    data=student_db.copy(conn,payload)
     # Copy data for specified shards
     # Implement your logic here
     
     return jsonify({
-        "message": "Data copied successfully",
+        shards[0] : data[0],
+        shards[1] : data[1],
         "status": "success"
     }), 200
 
@@ -89,7 +95,7 @@ def delete_data():
     payload = request.json
     student_db = db.StudentDatabase()
     conn = student_db.create_connection()
-    message=student_db.update(conn,payload)
+    message=student_db.delete(conn,payload)
     return jsonify({
         "message": message,
         "status": "success"
