@@ -185,7 +185,384 @@ def route_request(req_path):
         }
         return jsonify(response_json), 400
 
+   
+database_configuration = None
+mutex_locks = {}
 
+@app.route('/init', methods=['POST'])
+def initialize_database():
+    try:
+        global database_configuration,mutex_locks
+        # Extract data from the request
+        payload_json = request.get_json()
+        N = payload_json["N"]
+        schema = payload_json["schema"]
+        shards = payload_json["shards"]
+        servers = payload_json["servers"]
+        database_configuration = {
+            "N": payload_json["N"],
+            "schema": payload_json["schema"],
+            "shards": payload_json["shards"],
+            "servers": payload_json["servers"]
+        }
+        # Initialize mutex locks for each shard
+        mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in database_configuration["shards"]}
+
+        # the database initialization 
+
+        response_json = {
+            "message": "Configured Database",
+            "status": "success"
+        }
+
+        return jsonify(response_json), 200
+
+    except Exception as e:
+        error_response = {
+            "message": f"Error during initialization: {str(e)}",
+            "status": "error"
+        }
+        return jsonify(error_response), 500
+    
+@app.route('/status', methods=['GET'])
+def get_database_status():
+    global database_configuration
+    if database_configuration:
+        return jsonify(database_configuration), 200
+    else:
+        response_data = {
+            "message": "Database not configured yet",
+            "status": "error"
+        }
+        return jsonify(response_data), 404
+
+@app.route('/add', methods=['POST'])
+def add_servers():
+    try:
+        # Extract data from the request
+        global database_configuration
+        payload_json = request.get_json()
+        n = payload_json["n"]
+        new_shards = payload_json["new_shards"]
+        servers = payload_json["servers"]
+
+        # Simple sanity checks on the request payload
+        if n > len(servers):
+            error_response = {
+                "message": "Number of new servers (n) is greater than newly added instances",
+                "status": "failure"
+            }
+            return jsonify(error_response), 400
+
+        # Add new servers and shards to the configuration
+        for i in range(n):
+            new_server_id = f"Server{random.randint(1000, 9999)}"
+            database_configuration["servers"][new_server_id] = servers.get(f"Server[{i}]", [])
+            #server add
+
+        # Update shard information
+        database_configuration["N"] += n
+        database_configuration["shards"].extend(new_shards)
+
+        response_data = {
+            "N": database_configuration["N"],
+            "message": f"Add {', '.join(database_configuration['servers'].keys())}",
+            "status": "successful"
+        }
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        error_response = {
+            "message": f"Error during adding new servers: {str(e)}",
+            "status": "error"
+        }
+        return jsonify(error_response), 500
+
+@app.route('/rm', methods=['DELETE'])
+def remove_servers():
+    try:
+        # Extract data from the request
+        global database_configuration
+        payload_json = request.get_json()
+        n = payload_json["n"]
+        servers_to_remove = payload_json["servers"]
+
+        # Simple sanity checks on the request payload
+        if n > len(servers_to_remove):
+            error_response = {
+                "message": "Length of server list is more than removable instances",
+                "status": "failure"
+            }
+            return jsonify(error_response), 400
+
+        # Remove servers and update shard information
+        for server in servers_to_remove:
+            if server in database_configuration["servers"]:
+                del database_configuration["servers"][server]
+                #server remove
+
+        response_data = {
+            "message": {
+                "N": database_configuration["N"],
+                "servers": list(database_configuration["servers"].keys())
+            },
+            "status": "successful"
+        }
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        error_response = {
+            "message": f"Error during removing servers: {str(e)}",
+            "status": "error"
+        }
+        return jsonify(error_response), 500
+
+@app.route('/read', methods=['POST'])
+def read_data():
+    try:
+        # Extract data from the request
+        global database_configuration
+        payload_json = request.json
+        stud_id_range = payload_json["Stud_id"]
+
+        # Placeholder for queried shards and data
+        shards_queried = []
+        queried_data = []
+
+        # Iterate through shards to find relevant ones based on Stud id range
+        for shard in database_configuration["shards"]:
+            shard_id = shard["Shard_id"]
+            stud_id_low = shard["Stud_id_low"]
+            shard_size = shard["Shard_size"]
+
+            # Check if the shard contains relevant data based on the Stud id range
+            if stud_id_low <= stud_id_range["high"] and (stud_id_low + shard_size) >= stud_id_range["low"]:
+                shards_queried.append(shard_id)
+
+                # Placeholder for data in the shard
+                shard_data = []
+
+                # Fetch data from the shard based on Stud id range
+                for i in range(stud_id_range["low"], stud_id_range["high"] + 1):
+                    shard_data.append({
+                        "Stud_id": i,
+                        "Stud_name": f"Student{i}",
+                        "Stud_marks": i % 100
+                    })
+
+                queried_data.extend(shard_data)
+
+        response_data = {
+            "shards_queried": shards_queried,
+            "data": queried_data,
+            "status": "success"
+        }
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        error_response = {
+            "message": f"Error during reading data: {str(e)}",
+            "status": "error"
+        }
+        return jsonify(error_response), 500
+
+@app.route('/write', methods=['POST'])
+def write_data():
+    try:
+        # Extract data from the request
+        global database_configuration, mutex_locks
+        payload_json = request.get_json()
+        data = payload_json["data"]
+        # Placeholder for response details
+        success_count = 0
+        failed_entries = []
+
+        # Iterate through data entries and write to the database
+        for entry in data:
+            stud_id = entry["Stud_id"]
+            shard_id = get_shard_id(stud_id)
+
+            # Acquire mutex lock for the shard
+            mutex_lock = mutex_locks[shard_id]
+            mutex_lock.acquire()
+
+            try:
+                # Get all servers having replicas of the shard
+                servers = database_configuration["servers"].get(shard_id, [])
+
+                # Write entries in all servers of the shard
+                write_successful = write_entries_to_servers(servers, entry)
+
+                # Update the valid idx of the shard in the metadata if writes are successful
+                if write_successful:
+                    update_valid_idx(shard_id)
+
+                    # Increment success count
+                    success_count += 1
+                else:
+                    failed_entries.append(entry)
+
+            finally:
+                # Release the mutex lock for the shard
+                mutex_lock.release()
+
+        # Dummy response for demonstration purposes
+        response_data = {
+            "message": f"{success_count} Data entries added",
+            "status": "success"
+        }
+
+        return jsonify(response_data), 200
+
+    except Exception as e:
+        error_response = {
+            "message": f"Error during writing data: {str(e)}",
+            "status": "error"
+        }
+        return jsonify(error_response), 500
+
+# Function to get the shard id based on the Stud id
+def get_shard_id(stud_id):
+    for shard in database_configuration["shards"]:
+        stud_id_low = shard["Stud_id_low"]
+        shard_size = shard["Shard_size"]
+
+        if stud_id_low <= stud_id < stud_id_low + shard_size:
+            return shard["Shard_id"]
+
+# Function to write entries to all servers of a shard
+def write_entries_to_servers(servers, entry):
+    time.sleep(0.1)
+    return True
+
+# Function to update the valid idx of a shard in the metadata
+def update_valid_idx(shard_id):
+    # Placeholder for actual update logic (replace with your actual logic)
+    pass
+
+@app.route('/update', methods=['PUT'])
+def update_data():
+    try:
+        # Extract data from the request
+        global database_configuration, mutex_locks
+        payload_json = request.get_json()
+        stud_id = payload_json["Stud_id"]
+        data_entry =payload_json["data"]
+
+        # Get the shard id for the provided Stud id
+        shard_id = get_shard_id(int(stud_id))
+
+        # Acquire mutex lock for the shard
+        mutex_lock = mutex_locks[shard_id]
+        mutex_lock.acquire()
+
+        try:
+            # Get all servers having replicas of the shard
+            servers = database_configuration["servers"].get(shard_id, [])
+
+            # Update the data entry in all servers of the shard
+            update_successful = update_entry_in_servers(servers, data_entry)
+
+            if update_successful:
+                response_data = {
+                    "message": f"Data entry for Stud_id: {stud_id} updated",
+                    "status": "success"
+                }
+            else:
+                response_data = {
+                    "message": f"Failed to update data entry for Stud_id: {stud_id}",
+                    "status": "failure"
+                }
+
+            return jsonify(response_data), 200
+
+        finally:
+            # Release the mutex lock for the shard
+            mutex_lock.release()
+
+    except Exception as e:
+        error_response = {
+            "message": f"Error during updating data: {str(e)}",
+            "status": "error"
+        }
+        return jsonify(error_response), 500
+
+# Function to get the shard id based on the Stud id
+def get_shard_id(stud_id):
+    for shard in database_configuration["shards"]:
+        stud_id_low = shard["Stud_id_low"]
+        shard_size = shard["Shard_size"]
+
+        if stud_id_low <= stud_id < stud_id_low + shard_size:
+            return shard["Shard_id"]
+
+# Function to update an entry in all servers of a shard
+def update_entry_in_servers(servers, data_entry):
+    time.sleep(0.1)
+    return True
+
+@app.route('/del', methods=['DELETE'])
+def delete_data():
+    try:
+        # Extract data from the request
+        global database_configuration, mutex_locks
+        payload_json = request.get_json()
+        stud_id = payload_json["Stud_id"]
+
+        # Get the shard id for the provided Stud id
+        shard_id = get_shard_id(int(stud_id))
+
+        # Acquire mutex lock for the shard
+        mutex_lock = mutex_locks[shard_id]
+        mutex_lock.acquire()
+
+        try:
+            # Get all servers having replicas of the shard
+            servers = database_configuration["servers"].get(shard_id, [])
+
+            # Delete the data entry from all servers of the shard
+            delete_successful = delete_entry_from_servers(servers, stud_id)
+
+            if delete_successful:
+                response_data = {
+                    "message": f"Data entry with Stud_id:{stud_id} removed from all replicas",
+                    "status": "success"
+                }
+            else:
+                response_data = {
+                    "message": f"Failed to remove data entry with Stud_id:{stud_id}",
+                    "status": "failure"
+                }
+
+            return jsonify(response_data), 200
+
+        finally:
+            # Release the mutex lock for the shard
+            mutex_lock.release()
+
+    except Exception as e:
+        error_response = {
+            "message": f"Error during deleting data: {str(e)}",
+            "status": "error"
+        }
+        return jsonify(error_response), 500
+
+# Function to get the shard id based on the Stud id
+def get_shard_id(stud_id):
+    for shard in database_configuration["shards"]:
+        stud_id_low = shard["Stud_id_low"]
+        shard_size = shard["Shard_size"]
+
+        if stud_id_low <= stud_id < stud_id_low + shard_size:
+            return shard["Shard_id"]
+
+# Function to delete an entry from all servers of a shard
+def delete_entry_from_servers(servers, stud_id):
+    time.sleep(0.1)
+    return True
 
 if  __name__ == '__main__':
     
