@@ -32,7 +32,7 @@ ENV SERVER_ID=""
 # ENV HOME=/home/$USER
 ENV MYSQL_ROOT_PASSWORD="password"
 
-EXPOSE 5000
+# EXPOSE 5000
 ENTRYPOINT ["/app/custom-entry.sh"]
 CMD ["mysqld"]
 # CMD ["python3","./server.py"]

@@ -2,31 +2,64 @@ from flask import Flask,request,jsonify,url_for,redirect
 import random
 import requests
 import os
+#Differnt type Consistant Hashmapiing
 from consistant_HASHMAP import ConsistentHashMap  
 # from consistant_HASHMAP_1 import ConsistentHashMap  
 # from consistant_HASHMAP_2 import ConsistentHashMap  
 # from consistant_HASHMAP_3 import ConsistentHashMap  
 # import subprocess
+
 import threading
 import time
+from assist import *
+
 
 app = Flask(__name__)
 
+
+#GLOBAl VARIABLES
 NUM_CONTAINERS = 3
 TOTAL_SLOTS = 512
 NUM_VIRTUAL_SERVERS = 9
-
+MAX_RETRIES = 5
+shardServerMap = {}
 consistent_hash_map = ConsistentHashMap(NUM_CONTAINERS, TOTAL_SLOTS, NUM_VIRTUAL_SERVERS)
-replicas = [f"Server_{random.randint(100000,999999)}" for _ in range(1, NUM_CONTAINERS + 1)]
+# replicas = [f"Server_{random.randint(100000,999999)}" for _ in range(1, NUM_CONTAINERS + 1)]
+replicas = []
+################Initialize the Datbase for Loadbalance#############
 
-for replica in replicas:
-    # consistent_hash_map.add_server_container(int(replica[7]))
-    consistent_hash_map.add_server_container(replica)
+mapT_json = {
+    "schema" : {"columns":["Shard_id","Server_id"],
+                "dtypes":["String","String"]},
+}
+shardT_json = {
+    "schema" : {"columns":["Shard_id","Stud_id_low","Shard_size","valid_idx"],
+                "dtypes":["String","Number","Number","Number"]},
+}
 
-for replica in replicas:
-        print(replica)
-        os.system(f'sudo docker run --name {replica} --network net1 --network-alias {replica} -e "SERVER_ID={replica}" -d server:latest')
-        # out = os.system(f'sudo docker run --name {replica} --network net1 -e "SERVER_ID={replica}" -d server:latest')
+queryHandler = SQLHandler(db="loadbalancerDB")
+
+### mapT######
+columnsName = mapT_json['schema']['columns']
+dtypes = mapT_json['schema']['dtypes']
+queryHandler.hasTable(tabname="mapT",columns=columnsName,dtypes=dtypes,primaryKeyFlag=False)
+
+### shardT######
+columnsName = shardT_json['schema']['columns']
+dtypes = shardT_json['schema']['dtypes']
+queryHandler.hasTable(tabname="shardT",columns=columnsName,dtypes=dtypes,primaryKeyFlag=False)
+
+# # Server Replica Initialization## 
+# for replica in replicas:
+#     # consistent_hash_map.add_server_container(int(replica[7]))
+#     consistent_hash_map.add_server_container(replica)
+
+# for replica in replicas:
+#         print(replica)
+#         os.system(f'sudo docker run --name {replica} --network net1 --network-alias {replica} -e "SERVER_ID={replica}" -d server:latest')
+#         # out = os.system(f'sudo docker run --name {replica} --network net1 -e "SERVER_ID={replica}" -d server:latest')
+
+
 ######################### Difining the another thread to check server status #######################
 def replica_status(replicas):
     while True:
@@ -68,8 +101,8 @@ def replica_status(replicas):
         time.sleep(1)
 
 ################ Calling Server thread ###############
-server_thread = threading.Thread(target=replica_status,args=(replicas,))
-server_thread.start()
+# server_thread = threading.Thread(target=replica_status,args=(replicas,))
+# server_thread.start()
 
 
 
@@ -185,29 +218,98 @@ def route_request(req_path):
         }
         return jsonify(response_json), 400
 
-   
+
+
+ ############################################### PART 2 ##########################
+      
 database_configuration = None
 mutex_locks = {}
 
 @app.route('/init', methods=['POST'])
 def initialize_database():
+    print("inside api")
+
     try:
-        global database_configuration,mutex_locks
+        global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES
         # Extract data from the request
+        print("got payload")
+        
         payload_json = request.get_json()
-        N = payload_json["N"]
+        n = payload_json["N"]
         schema = payload_json["schema"]
         shards = payload_json["shards"]
         servers = payload_json["servers"]
-        database_configuration = {
-            "N": payload_json["N"],
-            "schema": payload_json["schema"],
-            "shards": payload_json["shards"],
-            "servers": payload_json["servers"]
-        }
+
+        
+
+        #Server Container Inintialization
+        keysList = list(servers.keys())
+        if n== len(keysList):
+            for server in keysList:
+                if server.find("[") != -1:
+                    #Handled Server[5] Case
+                    while True:
+                        #if randomly choosed server is present in keyist
+                        serverName = f"Server{random.randint(100000,999999)}" 
+                        if serverName not in keysList:
+                            os.system(f'sudo docker run --name {serverName} --network net1 --network-alias {serverName} -e "SERVER_ID={serverName}" -d server:latest')
+                            replicas.append(serverName)
+                            if serverName != server :
+                                #replaced the server key information with randomly choosed name
+                                servers[serverName] = servers[server]
+                                del servers[server]
+                            break
+                else:
+                    os.system(f'sudo docker run --name {server} --network net1 --network-alias {server} -e "SERVER_ID={server}" -d server:latest')
+                    replicas.append(server)
+        else:
+            #Edge case n mismiatch with server list handled
+            if n>len(keysList): 
+                response_json = {
+                "error": "Number of Server is greater than server id",
+                "status": "Failure"}
+            elif n<len(keysList): 
+                response_json = {
+                "error": "Number of Server is less than server id",
+                "status": "Failure"
+                }
+            return jsonify(response_json), 500
+
+        print("added server to list")
+    
+        #Insert the init config data in datatables
+        queryHandler.InsertLBshardT(row=shards)
+        queryHandler.InsertLBmapT(row=servers)
+        print("inserted values to tables")
         # Initialize mutex locks for each shard
+        for shard in shards:
+            id = shard['Shard_id']
+            shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
+            serverContainer = queryHandler.whereIsShard(id)
+            for server in serverContainer:
+                shardServerMap[id].add_server_container(server)
+        print(shardServerMap)
         mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in database_configuration["shards"]}
 
+        # /config call of individual servers.
+        for server in servers:
+            shardsinserver = queryHandler.getShardsinServer(server)
+            print(shardsinserver)
+            serverPayload_json = {
+                "schema": schema,
+                "shards": shardsinserver
+            }
+
+            retries = MAX_RETRIES
+            while(retries > 0):
+                retries-=1
+                #call api
+                url = f"http://{server}:5000/config"
+                res=requests.get(url,timeout = 5).json()
+                app.logger.warn(res)
+
+                if res["status"] == "success":
+                    break
         # the database initialization 
 
         response_json = {
@@ -566,4 +668,4 @@ def delete_entry_from_servers(servers, stud_id):
 
 if  __name__ == '__main__':
     
-    app.run(host='0.0.0.0',port=5000,debug=False)
+    app.run(host='0.0.0.0',port=5000,debug=True)
