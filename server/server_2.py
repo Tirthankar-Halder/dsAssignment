@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+from flask_sqlalchemy import SQLAlchemy
 import sqlite3
 import os
 import table1 as db
@@ -14,14 +15,15 @@ def initialize_shards():
     payload = request.json
     student_db = db.StudentDatabase()
     conn = student_db.create_connection()
-    msg=server_id+':'
-    msg+=str(student_db.create_table(conn,payload))
-    msg+='configured'
+    message=server_id+':'
+    message_resp,status_code=student_db.create_table(conn,payload)
+    message+=str(message_resp)
+    message+='configured' if status_code==200 else "not configured"
     conn.close()
     return jsonify({
-        "message": msg,
-        "status": "success"
-    }), 200
+        "message": message,
+        "status": "success" if status_code==200 else "error"
+    }), status_code
 
 # Endpoint to send heartbeat responses
 @app.route('/heartbeat', methods=['GET'])
@@ -31,50 +33,45 @@ def heartbeat():
 # Endpoint to copy data entries corresponding to one shard table in the server container
 @app.route('/copy', methods=['GET'])
 def copy_data():
-    # Implement copying logic here
-    # Parse request payload
+    
     payload = request.json
     shards = payload.get('shards')
     student_db = db.StudentDatabase()
     conn = student_db.create_connection()
-    data=student_db.copy(conn,payload)
-    # Copy data for specified shards
-    # Implement your logic here
+    #data=student_db.copy(conn,payload)
+    data,status_code=student_db.copy(conn,shards)
     
     return jsonify({
         shards[0] : data[0],
-        shards[1] : data[1],
-        "status": "success"
-    }), 200
+        shards[1] : data[1], 
+        "status": "success" if status_code==200 else 'error'
+    }), status_code
 
 # Endpoint to read data entries from a shard in a particular server container
 @app.route('/read', methods=['POST'])
 def read_data():
-    # Implement reading logic here
-    # Parse request payload
     payload = request.json
     student_db = db.StudentDatabase()
     conn = student_db.create_connection()
-    data=student_db.read(conn,payload)
+    data,status_code=student_db.read(conn,payload)
     return jsonify({
         "data": data,  # Provide the actual data read from the database
-        "status": "success"
-    }), 200
+        "status": "success" if status_code==200 else "error"
+    }), status_code
 
 # Endpoint to write data entries in a shard in a particular server container
 @app.route('/write', methods=['POST'])
 def write_data():
-    # Implement writing logic here
-    # Parse request payload
+    
     payload = request.json
     student_db = db.StudentDatabase()
     conn = student_db.create_connection()
-    message,curr_idx=student_db.write(conn,payload)
+    message,curr_idx,status_code=student_db.write(conn,payload)
     return jsonify({
         "message": message,  # Provide the actual data read from the database
         "current_idx": curr_idx,
-        "status": "success"
-    }), 200
+        "status": "success" if status_code==200 else "error"
+    }), status_code
     
 # Endpoint to update a particular data entry in a shard in a particular server container
 @app.route('/update', methods=['PUT'])
@@ -82,11 +79,11 @@ def update_data():
     payload = request.json
     student_db = db.StudentDatabase()
     conn = student_db.create_connection()
-    message=student_db.update(conn,payload)
+    message,status_code=student_db.update(conn,payload)
     return jsonify({
         "message": message,
-        "status": "success"
-    }), 200
+        "status": "success" if status_code==200 else "error"
+    }), status_code
 
 
 # Endpoint to delete a particular data entry in a shard in a particular server container
@@ -95,11 +92,11 @@ def delete_data():
     payload = request.json
     student_db = db.StudentDatabase()
     conn = student_db.create_connection()
-    message=student_db.delete(conn,payload)
+    message,status_code=student_db.delete(conn,payload)
     return jsonify({
         "message": message,
-        "status": "success"
-    }), 200
+        "status": "success" if status_code==200 else "error"
+    }), status_code
 
 if  __name__ == '__main__':
     # app.run(debug=True,host='0.0.0.0')
