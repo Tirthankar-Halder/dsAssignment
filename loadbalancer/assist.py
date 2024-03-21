@@ -306,7 +306,7 @@ class SQLHandler:
             res = self.query(f"SELECT Shard_id, Server_id FROM mapT")
             message ={}
             for row in res:
-                if row[1] not in list(message.key()):
+                if row[1] not in list(message.keys()):
                     message[row[1]] = []
                 message[row[1]].append(row[0])
             # print(res)

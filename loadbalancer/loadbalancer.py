@@ -30,7 +30,7 @@ consistent_hash_map = ConsistentHashMap(NUM_CONTAINERS, TOTAL_SLOTS, NUM_VIRTUAL
 # replicas = [f"Server_{random.randint(100000,999999)}" for _ in range(1, NUM_CONTAINERS + 1)]
 replicas = []
 ################Initialize the Datbase for Loadbalance#############
-
+schema = {}
 mapT_json = {
     "schema" : {"columns":["Shard_id","Server_id"],
                 "dtypes":["String","String"]},
@@ -350,21 +350,25 @@ def get_database_status():
     res = queryHandler.getServerList()
     shard,_ = queryHandler.getShardInfo()
     server,__ = queryHandler.getServerInfo()
-    
-    response_json = {
-        "N": len(res),
-        "schema": schema,
-        "shards": shard,
-        "servers": server
-    }
-    if len(res):
-        return jsonify(response_json), 200
-    else:
-        response_data = {
-            "message": "Database not configured yet",
-            "status": "error"
+
+    if schema:
+
+        response_json = {
+            "N": len(res),
+            "schema": schema,
+            "shards": shard,
+            "servers": server
         }
-        return jsonify(response_data), 404
+        if len(res):
+            return jsonify(response_json), 200
+        else:
+            response_data = {
+                "message": "Database not configured yet",
+                "status": "error"
+            }
+            return jsonify(response_data), 404
+    else:
+        return jsonify("Schema is not defined yet."),404
 
 @app.route('/add', methods=['POST'])
 def add_servers():
