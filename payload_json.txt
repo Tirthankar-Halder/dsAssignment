@@ -1,3 +1,9 @@
+
+ {
+"schema":{"columns":["Stud_id","Stud_name","Stud_marks"],
+"dtypes":["Number","String","String"]}
+"shards":["sh1","sh2"]
+}
 Payload_Json= {
     "N":3,
     "schema":{"columns":["Stud_id","Stud_name","Stud_marks"],
@@ -5,9 +11,11 @@ Payload_Json= {
 
     "shards":[{"Stud_id_low":0, "Shard_id": "sh1", "Shard_size":4096},
     {"Stud_id_low":4096, "Shard_id": "sh2", "Shard_size":4096},
-    {"Stud_id_low":8192, "Shard_id": "sh3", "Shard_size":4096},],
-
-    "servers":{"Server0":["sh1","sh2"],
-    "Server1":["sh2","sh3"],
+    {"Stud_id_low":8192, "Shard_id": "sh3", "Shard_size":4096}],
+    
+    "servers":{"Server[3]":["sh1","sh2"],
+    "Server[4]":["sh2","sh3"],
     "Server[5]":["sh1","sh3"]}
     }
+sudo docker kill $(sudo docker ps -q)
+sudo docker rm -f $(sudo docker ps -a -q)

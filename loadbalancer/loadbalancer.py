@@ -12,10 +12,13 @@ from consistant_HASHMAP import ConsistentHashMap
 import threading
 import time
 from assist import *
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('LoadBalancer:')
+    
 
-
+time.sleep(7)
 app = Flask(__name__)
-
 
 #GLOBAl VARIABLES
 NUM_CONTAINERS = 3
@@ -110,6 +113,7 @@ def replica_status(replicas):
 
 @app.route('/')
 def index():
+    logger.info("Welcome to HELLO WORLD")
     return "Welcome to HELLO WORLD"
 
 @app.route('/rep', methods=['GET'])
@@ -117,7 +121,7 @@ def rep():
     # for replica in replicas:
     #     out = os.popen(f'sudo docker run --name {replica} --network net1 -e "SERVER_ID={replica}" -d server').read()
         # subprocess.run(f"sudo docker run --name {replica} --network net1 -e 'SERVER_ID={replica}' -d server",shell=True)
-
+    global replicas
     response_json = {
 
         "message": {
@@ -200,7 +204,8 @@ def remove_replicas():
 @app.route('/<req_path>', methods=['GET'])
 def route_request(req_path):
     req_id=random.randint(100000,999999)
-    replica = consistent_hash_map.get_server_container(req_id)
+    # replica = consistent_hash_map.get_server_container(req_id)
+    replica = replicas[random.randint(0,len(replicas)-1)]
     app.logger.warn("Assigned {}".format(replica))
     if replica in replicas:
         try:
@@ -230,7 +235,7 @@ def initialize_database():
     print("inside api")
 
     try:
-        global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES
+        global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema
         # Extract data from the request
         print("got payload")
         
@@ -246,22 +251,24 @@ def initialize_database():
         keysList = list(servers.keys())
         if n== len(keysList):
             for server in keysList:
-                if server.find("[") != -1:
-                    #Handled Server[5] Case
-                    while True:
-                        #if randomly choosed server is present in keyist
-                        serverName = f"Server{random.randint(100000,999999)}" 
-                        if serverName not in keysList:
-                            os.system(f'sudo docker run --name {serverName} --network net1 --network-alias {serverName} -e "SERVER_ID={serverName}" -d server:latest')
-                            replicas.append(serverName)
-                            if serverName != server :
-                                #replaced the server key information with randomly choosed name
-                                servers[serverName] = servers[server]
-                                del servers[server]
-                            break
-                else:
-                    os.system(f'sudo docker run --name {server} --network net1 --network-alias {server} -e "SERVER_ID={server}" -d server:latest')
-                    replicas.append(server)
+                if server not in queryHandler.getServerList():
+                    #handled: skipped if server is already present(valid for second time init call)
+                    if server.find("[") != -1:
+                        #Handled Server[5] Case
+                        while True:
+                            #if randomly choosed server is present in keyist
+                            serverName = f"Server{random.randint(0,999999999)}" 
+                            if serverName not in keysList:
+                                os.system(f'sudo docker run --name {serverName} --network net1 --network-alias {serverName} -e "SERVER_ID={serverName}" -d server:latest')
+                                replicas.append(serverName)
+                                if serverName != server :
+                                    #replaced the server key information with randomly choosed name
+                                    servers[serverName] = servers[server]
+                                    del servers[server]
+                                break
+                    else:
+                        os.system(f'sudo docker run --name {server} --network net1 --network-alias {server} -e "SERVER_ID={server}" -d server:latest')
+                        replicas.append(server)
         else:
             #Edge case n mismiatch with server list handled
             if n>len(keysList): 
@@ -279,6 +286,7 @@ def initialize_database():
     
         #Insert the init config data in datatables
         queryHandler.InsertLBshardT(row=shards)
+        print("updated shardT")
         queryHandler.InsertLBmapT(row=servers)
         print("inserted values to tables")
         # Initialize mutex locks for each shard
@@ -286,31 +294,41 @@ def initialize_database():
             id = shard['Shard_id']
             shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
             serverContainer = queryHandler.whereIsShard(id)
+            print("servers for a shard:",serverContainer)
             for server in serverContainer:
                 shardServerMap[id].add_server_container(server)
         print(shardServerMap)
-        mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in database_configuration["shards"]}
-
+        # mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in shards}
+        # print(mutex_locks)
+        print("ConsistantHashMap Shard")
+        logger.info("ConsistantHashMap Shard")
+        
         # /config call of individual servers.
+        print(servers)
+        logger.info(f"Server {servers}")
+        time.sleep(20)
+        logger.info("Bro I am waiting for server to initilize....... ")
         for server in servers:
-            shardsinserver = queryHandler.getShardsinServer(server)
-            print(shardsinserver)
+            print("call for individual server:" ,server)
+            logger.info(f"call for individual server:{server}")
+            # shardsinserver = queryHandler.getShardsinServer(server)
+            shardsinserver = servers[server]
+            logger.info(f"shards list inside server : {shardsinserver}")
             serverPayload_json = {
                 "schema": schema,
                 "shards": shardsinserver
             }
-
-            retries = MAX_RETRIES
-            while(retries > 0):
-                retries-=1
-                #call api
+            print(serverPayload_json)
+            tries = 0
+            print("Calling config for ",server)
+            logger.info(f"Calling config for {server}")
+            
+            try:
                 url = f"http://{server}:5000/config"
-                res=requests.get(url,timeout = 5).json()
-                app.logger.warn(res)
-
-                if res["status"] == "success":
-                    break
-        # the database initialization 
+                res=requests.post(url,json=serverPayload_json)
+                logger.info(f"Response from {server} is :{res}")
+            except Exception as e:
+                logger.info(f"The routed {server} is not yet Initialized, Retrying ....{tries}")
 
         response_json = {
             "message": "Configured Database",
@@ -328,9 +346,19 @@ def initialize_database():
     
 @app.route('/status', methods=['GET'])
 def get_database_status():
-    global database_configuration
-    if database_configuration:
-        return jsonify(database_configuration), 200
+    global schema
+    res = queryHandler.getServerList()
+    shard,_ = queryHandler.getShardInfo()
+    server,__ = queryHandler.getServerInfo()
+    
+    response_json = {
+        "N": len(res),
+        "schema": schema,
+        "shards": shard,
+        "servers": server
+    }
+    if len(res):
+        return jsonify(response_json), 200
     else:
         response_data = {
             "message": "Database not configured yet",

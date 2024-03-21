@@ -197,9 +197,12 @@ class SQLHandler:
     def InsertLBshardT(self,row):
         error = ""
         c=0
+        # for data in row:
+        #     print(data)
         for data in row:
             try:
-                self.nrq(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_szie'])},{int(data['valid_idx'])})")
+                # print(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])},0)")
+                self.nrq(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])},0)")
                 c+=1
             except Exception as e:
                 error+= str(e)
@@ -213,14 +216,14 @@ class SQLHandler:
         keysList = list(row.keys())
         print(keysList)
         for server in keysList:
-            for shard in keysList[server]:
+            for shard in row[server]:
                 print(server,shard)
-        for data in row:
-            try:
-                self.nrq(f"INSERT INTO mapT (Shard_id, Server_id) VALUES ('{str(data['Shard_id'])}','{str(data['Server_id'])}')")
-                c+=1
-            except Exception as e:
-                error+= str(e)
+        # for data in row:
+                try:
+                    self.nrq(f"INSERT INTO mapT (Shard_id, Server_id) VALUES ('{str(shard)}','{str(server)}')")
+                    c+=1
+                except Exception as e:
+                    error+= str(e)
         if error != "" and c>0 :
             return error+"\n Other entries inserted"
         return error
@@ -266,17 +269,51 @@ class SQLHandler:
         
     def whereIsShard(self, shardID):
         try:
-            res = self.query("SELECT DISTINCT Server_id FROM mapT WHERE Shard_id = '{shardID}'")
-            return res
+            print(shardID)
+            print(f"SELECT DISTINCT Server_id FROM mapT WHERE Shard_id = '{shardID}'")
+            res = self.query(f"SELECT DISTINCT Server_id FROM mapT WHERE Shard_id = '{shardID}'")
+            return [x[0] for x in res]
         except Exception as e:
             return str(e)
+    
     def getShardsinServer(self,serverID):
         try:
-            res = self.query("SELECT DISTINCT Shard_id FROM mapT WHERE Server_id = '{serverID}'")
-            return res
+            res = self.query(f"SELECT DISTINCT Shard_id FROM mapT WHERE Server_id = '{serverID}'")
+            return [x[0] for x in res]
         except Exception as e:
             return str(e)
+    def getServerList(self):
+        try:
+            res = self.query(f"SELECT DISTINCT Server_id FROM mapT")
+            return [x[0] for x in res]
+        except Exception as e:
+            return str(e)
+    def getShardInfo(self):
+        try:
+            res = self.query(f"SELECT Stud_id_low, Shard_id, Shard_size FROM shardT")
+            messgae =[]
+            for row in res:
+                messgae.append({"Stud_id_low":row[0],"Shard_id":row[1],"Shard_size":row[2]})
+            # print(res)
+            return messgae,1
+        except Exception as e:
+            return str(e),0
         
+    def getServerInfo(self):
+        try:
+            # serverList = self.getServerList()
+            
+            res = self.query(f"SELECT Shard_id, Server_id FROM mapT")
+            message ={}
+            for row in res:
+                if row[1] not in list(message.key()):
+                    message[row[1]] = []
+                message[row[1]].append(row[0])
+            # print(res)
+            return message,1
+        except Exception as e:
+            return str(e),0
+    
 # def env_config():
 #     config={}
 #     config['persist']=True if os.environ['PERSIST']=='yes' else False
