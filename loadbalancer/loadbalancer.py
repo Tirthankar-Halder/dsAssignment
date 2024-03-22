@@ -771,6 +771,7 @@ def update_valid_idx(shard_id):
 
 @app.route('/update', methods=['PUT'])
 def update_data():
+    global mutex_locks
     try:
         # Extract data from the request
         global  mutex_locks
@@ -780,14 +781,6 @@ def update_data():
 
         try:
             shardName = get_shard_id(stud_id)
-            # if stud_id<4096:
-            #     shardName = "sh1"
-            # elif stud_id <8192:
-            #     shardName = "sh2"
-            # elif stud_id <12288:
-            #     shardName = "sh3"
-            # else:
-            #     return jsonify("Invalid stud_id"),404
             servers = queryHandler.whereIsShard(shardName)
              # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shardName]
@@ -802,7 +795,7 @@ def update_data():
                 
                 try:
                     url = f"http://{server}:5000/update"
-                    res=requests.post(url,json=serverPayload_json)
+                    res=requests.put(url,json=serverPayload_json).json()
                     logger.info(f"Response from {server} is :{res}")
                     updateShard+=1
                 except Exception as e:
@@ -832,20 +825,6 @@ def update_data():
             "status": "error"
         }
         return jsonify(error_response), 500
-
-# # Function to get the shard id based on the Stud id
-# def get_shard_id(stud_id):
-#     for shard in database_configuration["shards"]:
-#         stud_id_low = shard["Stud_id_low"]
-#         shard_size = shard["Shard_size"]
-
-#         if stud_id_low <= stud_id < stud_id_low + shard_size:
-#             return shard["Shard_id"]
-
-# # Function to update an entry in all servers of a shard
-# def update_entry_in_servers(servers, data_entry):
-#     time.sleep(0.1)
-#     return True
 
 @app.route('/del', methods=['DELETE'])
 def delete_data():
