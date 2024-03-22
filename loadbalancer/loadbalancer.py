@@ -29,6 +29,7 @@ shardServerMap = {}
 consistent_hash_map = ConsistentHashMap(NUM_CONTAINERS, TOTAL_SLOTS, NUM_VIRTUAL_SERVERS)
 # replicas = [f"Server_{random.randint(100000,999999)}" for _ in range(1, NUM_CONTAINERS + 1)]
 replicas = []
+SHARD_REPLICAS = 2
 ################Initialize the Datbase for Loadbalance#############
 schema = {}
 mapT_json = {
@@ -299,8 +300,8 @@ def initialize_database():
             for server in serverContainer:
                 shardServerMap[id].add_server_container(server)
         print(shardServerMap)
-        # mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in shards}
-        # print(mutex_locks)
+        mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in shards}
+        print(mutex_locks)
         print("ConsistantHashMap Shard")
         logger.info("ConsistantHashMap Shard")
         
@@ -373,9 +374,10 @@ def get_database_status():
 
 @app.route('/add', methods=['POST'])
 def add_servers():
+    global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema
     try:
         # Extract data from the request
-        global database_configuration
+        # global database_configuration
         payload_json = request.get_json()
         n = payload_json["n"]
         new_shards = payload_json["new_shards"]
@@ -389,19 +391,105 @@ def add_servers():
             }
             return jsonify(error_response), 400
 
-        # Add new servers and shards to the configuration
-        for i in range(n):
-            new_server_id = f"Server{random.randint(1000, 9999)}"
-            database_configuration["servers"][new_server_id] = servers.get(f"Server[{i}]", [])
-            #server add
+        # Up new servers
+        for server in list(servers.keys()):
+            if server not in queryHandler.getServerList():
+                if server.find("[") != -1:
+                        #Handled Server[5] Case
+                        while True:
+                            #if randomly choosed server is present in keyist
+                            serverName = f"Server{random.randint(0,999999999)}" 
+                            if serverName not in list(servers.keys()):
+                                os.system(f'sudo docker run --name {serverName} --network net1 --network-alias {serverName} -e "SERVER_ID={serverName}" -d server:latest')
+                                replicas.append(serverName)
+                                if serverName != server :
+                                    #replaced the server key information with randomly choosed name
+                                    servers[serverName] = servers[server]
+                                    del servers[server]
+                                break
+                else:
+                    os.system(f'sudo docker run --name {server} --network net1 --network-alias {server} -e "SERVER_ID={server}" -d server:latest')
+                    replicas.append(server)
+        
+        
 
         # Update shard information
-        database_configuration["N"] += n
-        database_configuration["shards"].extend(new_shards)
+        # database_configuration["N"] += n
+        # database_configuration["shards"].extend(new_shards)
+        
+        serverForShard = {}
+        oldshards = queryHandler.getShardList()
+        for shard in oldshards:
+            serverForShard[shard] = queryHandler.whereIsShard(shard)
+        logger.info(f"{serverForShard}")
+        #add new shard information
+        queryHandler.InsertLBshardT(row=new_shards)
+        print("updated shardT")
+        queryHandler.InsertLBmapT(row=servers)
+        print("inserted values to tables")
+        #add new server details
+
+        for shard in new_shards:
+            id = shard['Shard_id']
+            shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
+            serverContainer = queryHandler.whereIsShard(id)
+            print("servers for a shard:",serverContainer)
+            logger.info("servers for a shard:",serverContainer)
+            for server in serverContainer:
+                shardServerMap[id].add_server_container(server)
+        print(shardServerMap)
+
+        mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in shards}
+        print(mutex_locks)
+
+        time.sleep(20)
+
+        for server in servers:
+            print("call for individual server:" ,server)
+            logger.info(f"call for individual server:{server}")
+            # shardsinserver = queryHandler.getShardsinServer(server)
+            shardsinserver = servers[server]
+            logger.info(f"shards list inside server : {shardsinserver}")
+            serverPayload_json = {
+                "schema": schema,
+                "shards": shardsinserver
+            }
+            print(serverPayload_json)
+            tries = 0
+            print("Calling config for ",server)
+            logger.info(f"Calling config for {server}")
+            
+            try:
+                url = f"http://{server}:5000/config"
+                res=requests.post(url,json=serverPayload_json)
+                logger.info(f"Response from {server} is :{res}")
+            except Exception as e:
+                logger.info(f"The routed {server} is not yet Initialized, Retrying ....{tries}")
+
+            for shard in shardsinserver:
+                if shard in serverForShard:
+                    copyRES = {}
+                    for oldserver in serverForShard["shard"]:
+                        copyJSON = {
+                            "shards" : shard
+                        }
+                        url = f"http://{oldserver}:5000/copy"
+                        copyRES = requests.get(url,json=copyJSON).json()
+                        if copyRES["status"] == "success":
+                            break
+                    data = copyRES[shard]
+                    writeJSON ={
+                        "shard": shard,
+                        "curr_idx" : 0,
+                        "data": data
+                    }
+                    url = f"http://{server}:5000/write"
+                    writeRES = requests.post(url, payload_json = writeJSON).json()
+                    logger.info(f"copied data of {shard} from {oldserver} to {server}")
 
         response_data = {
-            "N": database_configuration["N"],
-            "message": f"Add {', '.join(database_configuration['servers'].keys())}",
+            "N": len(queryHandler.getServerList()),
+            "message": f"Add {', '.join(server.keys())}",
             "status": "successful"
         }
 
@@ -414,11 +502,25 @@ def add_servers():
         }
         return jsonify(error_response), 500
 
+def select_random_elements(A, B, n):
+    # Convert lists to sets to find the difference
+    difference = set(A) - set(B)
+    
+    # Convert the set back to a list
+    difference_list = list(difference)
+    
+    # Ensure we don't try to select more elements than available
+    num_elements_to_select = min(n, len(difference_list))
+    
+    # Select and return n random elements from the difference
+    return random.sample(difference_list, num_elements_to_select)
+
 @app.route('/rm', methods=['DELETE'])
 def remove_servers():
+    global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema, SHARD_REPLICAS
+    
     try:
         # Extract data from the request
-        global database_configuration
         payload_json = request.get_json()
         n = payload_json["n"]
         servers_to_remove = payload_json["servers"]
@@ -431,12 +533,79 @@ def remove_servers():
             }
             return jsonify(error_response), 400
 
-        # Remove servers and update shard information
-        for server in servers_to_remove:
-            if server in database_configuration["servers"]:
-                del database_configuration["servers"][server]
-                #server remove
+        # create list of severs to be removed
+        servers = queryHandler.getServerList()
+        servers_to_remove.append(select_random_elements(server,servers_to_remove,n-len(servers_to_remove)))
+        logger.info(f"remove -{servers_to_remove}")
 
+        # delete from replicas
+        replicas = select_random_elements(replicas,servers_to_remove,len(servers) - len(servers_to_remove))
+        logger.info(f"after removal - {replicas}")
+        
+        # delect from consistant hashmaps shardServerMap
+        for server in servers_to_remove:
+            for shard in queryHandler.getShardsinServer(server):
+                shardServerMap[shard].remove_server_container(server)
+        logger.info(f"updated consistant hashmaps")
+
+        #delete entry from mapT
+        deletedShards = {}
+        beforeDel = queryHandler.getShardList()
+        for server in servers_to_remove:
+            for shard in queryHandler.getShardsinServer(server):
+                if shard not in list(deletedShards.keys()):
+                    deletedShards[shard] = []
+                deletedShards[shard].append(server)
+            queryHandler.deleteServer(server)
+        afterDel = queryHandler.getShardList()
+        logger.info(f"potential danger - {deletedShards}")
+
+        # list of shards to be transfered
+        danger = select_random_elements(beforeDel,afterDel,len(beforeDel)-len(afterDel))
+        logger.info(f"need to transfer - {danger}")
+        
+        # transfer the danger shards to random servers
+        for shard in danger:
+        
+            randomServer = random.sample(replicas,SHARD_REPLICAS)
+            #send config of shard to random server 
+            configJSON = {
+                "schema": schema,
+                "shards": shard
+            }
+            for newLoc in randomServer:
+                url = f"http://{newLoc}:5000/config"
+                res=requests.post(url,json=configJSON)
+            #copy contents from old server
+            copyJSON = {
+                "shards" : shard
+            }
+            url = f"http://{deletedShards[shard][0]}:5000/copy"
+            copyRES = requests.get(url,json=copyJSON).json()
+            data = copyRES[shard]            
+            #write content to new server
+            writeJSON ={
+                "shard": shard,
+                "curr_idx" : 0,
+                "data": data
+            }
+            for newLoc in randomServer:
+                url = f"http://{newLoc}:5000/write"
+                writeRES = requests.post(url, payload_json = writeJSON).json()
+                logger.info(f"transfere to {newLoc} status -{writeRES}")
+            
+            
+            for newLoc in randomServer:
+                #update mapT
+                queryHandler.nrq(f"INSERT INTO mapT (Shard_id, Server_id) VALUES ('{str(shard)}','{str(newLoc)}')")
+                #update consistant hashmap
+                shardServerMap[shard].add_server_container(newLoc)
+
+        # kill server containers
+        for server in servers_to_remove:
+            os.system(f"sudo docker stop {server} && sudo docker rm {server}")
+            logger.info(f"stopped {server}")
+        
         response_data = {
             "message": {
                 "N": database_configuration["N"],

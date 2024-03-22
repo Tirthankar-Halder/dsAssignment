@@ -304,7 +304,11 @@ class SQLHandler:
             return messgae,1
         except Exception as e:
             return str(e),0
-        
+    def deleteServer(self,serverName):
+        try:
+            self.nrq(f"DELETE FROM mapT WHERE Server_id = '{serverName}'")
+        except Exception as e:
+            return str(e)
     def getServerInfo(self):
         try:
             # serverList = self.getServerList()
