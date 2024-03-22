@@ -148,7 +148,9 @@ class SQLHandler:
         try:
             res=self.query(f"SELECT * FROM {table_name} where Stud_id BETWEEN {lowVal} AND {highVal};")
             messgae =[]
-            if len(res)==0 :raise KeyError(f"Key:idx-{lowVal} and {highVal} is not found")
+            if len(res)==0 :
+                # raise KeyError(f"Key:idx-{lowVal} and {highVal} is not found")
+                return [],1
             else:
                 for row in res:
                     messgae.append({"Stud_id":row[0],"Stud_name":row[1],"Stud_marks":row[2]})

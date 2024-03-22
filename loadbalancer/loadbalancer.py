@@ -639,6 +639,7 @@ def read_data():
 
         # Iterate through shards to find relevant ones based on Stud id range
         shardList = queryHandler.getShardList()
+
         for shard in shardList:
             stud_id_low,_ = queryHandler.getStud_id_low(shardName=shard)
             shard_size,__ = queryHandler.getStud_size(shardName=shard)
@@ -648,25 +649,16 @@ def read_data():
             if stud_id_low <= stud_id_range["high"] and (stud_id_low + shard_size) >= stud_id_range["low"]:
                 shards_queried.append(shard)
 
-                # Placeholder for data in the shard
-                shard_data = []
-
-                # Fetch data from the shard based on Stud id range
-                # for i in range(stud_id_range["low"], stud_id_range["high"] + 1):
-                #     shard_data.append({
-                #         "Stud_id": i,
-                #         "Stud_name": f"Student{i}",
-                #         "Stud_marks": i % 100
-                #     })
                 serverPayload_json ={
                     "shard" :shard,
                     "Stud_id": stud_id_range
                     }
                 req_id=random.randint(100000,999999)
-                server = shardServerMap[shard].get_server_container(req_id)   
+                server = shardServerMap[shard].get_server_container(req_id)  
+                logger.info(f"Read:: Obtained {server} by consistantHashmap") 
                 try:
                     url = f"http://{server}:5000/read"
-                    res=requests.post(url,json=serverPayload_json)
+                    res=requests.post(url,json=serverPayload_json).json()
                     # flag=False
                     logger.info(f"Response from {server} is :{res}")
                     # success_count+=1
