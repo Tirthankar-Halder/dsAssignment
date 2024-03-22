@@ -104,7 +104,7 @@ def replica_status(replicas):
                 os.system(f"sudo docker stop {container} && sudo docker rm {container}")
         time.sleep(1)
 
-################ Calling Server thread ###############
+# ################ Calling Server thread ###############
 # server_thread = threading.Thread(target=replica_status,args=(replicas,))
 # server_thread.start()
 
@@ -134,73 +134,73 @@ def rep():
     return jsonify(response_json), 200
 
 
-@app.route('/add',methods = ['POST'])
-def add_replicas():
-    payload_json = request.get_json()
-    noOfServer = payload_json.get('n')
-    nameOfHostnames = payload_json.get('hostnames', [])
-    if len(nameOfHostnames) > noOfServer:
-        response_json = {
-            "message":"<Error> Length of hostname list is more than newly added instances",
-            "status" : "Failure"
-        }
-        return jsonify(response_json), 400
+# @app.route('/add',methods = ['POST'])
+# def add_replicas():
+#     payload_json = request.get_json()
+#     noOfServer = payload_json.get('n')
+#     nameOfHostnames = payload_json.get('hostnames', [])
+#     if len(nameOfHostnames) > noOfServer:
+#         response_json = {
+#             "message":"<Error> Length of hostname list is more than newly added instances",
+#             "status" : "Failure"
+#         }
+#         return jsonify(response_json), 400
         
-    for i in range(noOfServer):
-        if i < len(nameOfHostnames):
-            replica = nameOfHostnames[i]
-        else:
-            replica = f"RandomServer{random.randint(100000, 999999)}"
-        replicas.append(replica)
-        # consistent_hash_map.add_server_container(int(replica[1:]))
-        consistent_hash_map.add_server_container(replica)
-        os.system(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest")
-    response_json = {
-        "message": {
-            "N": len(replicas),
-            "replicas": replicas
-        },
-        "status" : "successful"
-    }
+#     for i in range(noOfServer):
+#         if i < len(nameOfHostnames):
+#             replica = nameOfHostnames[i]
+#         else:
+#             replica = f"RandomServer{random.randint(100000, 999999)}"
+#         replicas.append(replica)
+#         # consistent_hash_map.add_server_container(int(replica[1:]))
+#         consistent_hash_map.add_server_container(replica)
+#         os.system(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest")
+#     response_json = {
+#         "message": {
+#             "N": len(replicas),
+#             "replicas": replicas
+#         },
+#         "status" : "successful"
+#     }
 
-    return jsonify(response_json), 200
+#     return jsonify(response_json), 200
 
-@app.route('/rm', methods=['DELETE'])
-def remove_replicas():
-    payload_json = request.get_json()
-    noOfServer = payload_json.get('n')
-    nameOfHostnames = payload_json.get('hostnames', [])
+# @app.route('/rm', methods=['DELETE'])
+# def remove_replicas():
+#     payload_json = request.get_json()
+#     noOfServer = payload_json.get('n')
+#     nameOfHostnames = payload_json.get('hostnames', [])
 
-    if len(nameOfHostnames) > noOfServer:
-        response_json = {
-            "message":"<Error> Length of hostname list is more than newly removable instances",
-            "status" : "Failure"
-        }
-        return jsonify(response_json), 400
+#     if len(nameOfHostnames) > noOfServer:
+#         response_json = {
+#             "message":"<Error> Length of hostname list is more than newly removable instances",
+#             "status" : "Failure"
+#         }
+#         return jsonify(response_json), 400
     
-    removed_replicas = []
+#     removed_replicas = []
 
-    for i in range(noOfServer):
-        if i < len(nameOfHostnames):
-            replica = nameOfHostnames[i]
-        else:
-            replica = random.choice(replicas)
-        removed_replicas.append(replica)
-        os.system(f"sudo docker stop {replica} && sudo docker rm {replica}")
-        # os.system(f"sudo docker stop {replica}")
-        replicas.remove(replica)
-        # consistent_hash_map.remove_server_container(int(replica[1:]))
-        consistent_hash_map.remove_server_container(replica)
+#     for i in range(noOfServer):
+#         if i < len(nameOfHostnames):
+#             replica = nameOfHostnames[i]
+#         else:
+#             replica = random.choice(replicas)
+#         removed_replicas.append(replica)
+#         os.system(f"sudo docker stop {replica} && sudo docker rm {replica}")
+#         # os.system(f"sudo docker stop {replica}")
+#         replicas.remove(replica)
+#         # consistent_hash_map.remove_server_container(int(replica[1:]))
+#         consistent_hash_map.remove_server_container(replica)
 
-    response_json = {
-        "message": {
-            "N": len(replicas),
-            "replicas": replicas
-        },
-        "status" : "successful"
-    }
+#     response_json = {
+#         "message": {
+#             "N": len(replicas),
+#             "replicas": replicas
+#         },
+#         "status" : "successful"
+#     }
 
-    return jsonify(response_json), 200
+#     return jsonify(response_json), 200
 
 @app.route('/<req_path>', methods=['GET'])
 def route_request(req_path):
@@ -270,6 +270,7 @@ def initialize_database():
                     else:
                         os.system(f'sudo docker run --name {server} --network net1 --network-alias {server} -e "SERVER_ID={server}" -d server:latest')
                         replicas.append(server)
+                    logger.info(f"Container {server} is added. New available server : {replicas}")
         else:
             #Edge case n mismiatch with server list handled
             if n>len(keysList): 
@@ -310,6 +311,13 @@ def initialize_database():
         print(servers)
         logger.info(f"Server {servers}")
         time.sleep(20)
+
+
+        # ################ Calling Server thread ###############
+        # server_thread = threading.Thread(target=replica_status,args=(replicas,))
+        # server_thread.start()
+
+
         logger.info("Bro I am waiting for server to initilize....... ")
         for server in servers:
             print("call for individual server:" ,server)
@@ -329,7 +337,7 @@ def initialize_database():
             
             try:
                 url = f"http://{server}:5000/config"
-                res=requests.post(url,json=serverPayload_json)
+                res=requests.post(url,json=serverPayload_json).json()
                 logger.info(f"Response from {server} is :{res}")
             except Exception as e:
                 logger.info(f"The routed {server} is not yet Initialized, Retrying ....{tries}")
@@ -376,7 +384,7 @@ def get_database_status():
 
 @app.route('/add', methods=['POST'])
 def add_servers():
-    global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema
+    global mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema
     try:
         # Extract data from the request
         # global database_configuration
@@ -412,6 +420,7 @@ def add_servers():
                 else:
                     os.system(f'sudo docker run --name {server} --network net1 --network-alias {server} -e "SERVER_ID={server}" -d server:latest')
                     replicas.append(server)
+                logger.info(f"Container {server} is added. New available server : {replicas}")
         
         
 
@@ -423,25 +432,25 @@ def add_servers():
         oldshards = queryHandler.getShardList()
         for shard in oldshards:
             serverForShard[shard] = queryHandler.whereIsShard(shard)
-        logger.info(f"{serverForShard}")
+        logger.info(f"Server for Shard: {serverForShard}")
         #add new shard information
         queryHandler.InsertLBshardT(row=new_shards)
-        print("updated shardT")
+        logger.info("updated shardT in newly added servers")
         queryHandler.InsertLBmapT(row=servers)
-        print("inserted values to tables")
+        logger.info("inserted values to tables in newly added servers")
         #add new server details
 
         for shard in new_shards:
-            id = shard['Shard_id']
-            shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
-            serverContainer = queryHandler.whereIsShard(id)
+            shard_id = shard['Shard_id']
+            shardServerMap[shard_id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
+            serverContainer = queryHandler.whereIsShard(shard_id)
             print("servers for a shard:",serverContainer)
-            logger.info("servers for a shard:",serverContainer)
+            logger.info(f"servers for a shard:{serverContainer}")
             for server in serverContainer:
-                shardServerMap[id].add_server_container(server)
+                shardServerMap[shard_id].add_server_container(server)
         print(shardServerMap)
 
-        mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in shards}
+        mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in new_shards}
         print(mutex_locks)
 
         time.sleep(20)
@@ -463,31 +472,42 @@ def add_servers():
             
             try:
                 url = f"http://{server}:5000/config"
-                res=requests.post(url,json=serverPayload_json)
+                res=requests.post(url,json=serverPayload_json).json()
                 logger.info(f"Response from {server} is :{res}")
             except Exception as e:
                 logger.info(f"The routed {server} is not yet Initialized, Retrying ....{tries}")
 
+            
             for shard in shardsinserver:
+                logger.info(f"Shard : {shard} in shardsinserver: {shardsinserver}")
                 if shard in serverForShard:
+                    logger.info(f"Shard : {shard} in Serverforshard: {serverForShard}")
+                    # currID,___ = queryHandler.getCurrIdx(shardName=shard)
                     copyRES = {}
-                    for oldserver in serverForShard["shard"]:
+                    for oldserver in serverForShard[shard]:
+                        logger.info(f"Starting data migration from {oldserver} to new server {server}")
                         copyJSON = {
-                            "shards" : shard
+                            "shards" : [shard]
                         }
                         url = f"http://{oldserver}:5000/copy"
                         copyRES = requests.get(url,json=copyJSON).json()
+                        logger.info(f"copy endpoint of {oldserver} gave response {res}")
                         if copyRES["status"] == "success":
                             break
+                    logger.info(f"Data migration done from {serverForShard} for {server}")
                     data = copyRES[shard]
                     writeJSON ={
                         "shard": shard,
                         "curr_idx" : 0,
                         "data": data
                     }
+                    logger.info(f"Json for wrtting the data to newly added server:{writeJSON}")
                     url = f"http://{server}:5000/write"
-                    writeRES = requests.post(url, payload_json = writeJSON).json()
+                    writeRES = requests.post(url, json= writeJSON).json()
+                    logger.info(f"Response from server {server} is : {writeRES}")
                     logger.info(f"copied data of {shard} from {oldserver} to {server}")
+                    queryHandler.updateCurrIdx(writeRES["current_idx"],shardName=shard)
+                    logger.info("updated current index in newly added servers")
 
         response_data = {
             "N": len(queryHandler.getServerList()),
@@ -515,7 +535,7 @@ def select_random_elements(A, B, n):
     num_elements_to_select = min(n, len(difference_list))
     
     # Select and return n random elements from the difference
-    return random.sample(difference_list, num_elements_to_select)
+    return random.sample(difference_list, min(num_elements_to_select,len(difference_list)))
 
 @app.route('/rm', methods=['DELETE'])
 def remove_servers():
@@ -528,7 +548,7 @@ def remove_servers():
         servers_to_remove = payload_json["servers"]
 
         # Simple sanity checks on the request payload
-        if n > len(servers_to_remove):
+        if n < len(servers_to_remove):
             error_response = {
                 "message": "Length of server list is more than removable instances",
                 "status": "failure"
@@ -537,8 +557,10 @@ def remove_servers():
 
         # create list of severs to be removed
         servers = queryHandler.getServerList()
-        servers_to_remove.append(select_random_elements(server,servers_to_remove,n-len(servers_to_remove)))
-        logger.info(f"remove -{servers_to_remove}")
+        chooseRandomServer = select_random_elements(servers,servers_to_remove,n-len(servers_to_remove))
+        logger.info(f"random servers purge - {chooseRandomServer}")
+        servers_to_remove.extend(chooseRandomServer)
+        logger.info(f"Server to remove -{servers_to_remove}")
 
         # delete from replicas
         replicas = select_random_elements(replicas,servers_to_remove,len(servers) - len(servers_to_remove))
@@ -610,8 +632,8 @@ def remove_servers():
         
         response_data = {
             "message": {
-                "N": database_configuration["N"],
-                "servers": list(database_configuration["servers"].keys())
+                "N": len(replicas),
+                "servers": queryHandler.getServerList()
             },
             "status": "successful"
         }
