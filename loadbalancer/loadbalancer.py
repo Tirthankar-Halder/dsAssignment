@@ -295,6 +295,7 @@ def initialize_database():
             shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
             serverContainer = queryHandler.whereIsShard(id)
             print("servers for a shard:",serverContainer)
+            logger.info("servers for a shard:",serverContainer)
             for server in serverContainer:
                 shardServerMap[id].add_server_container(server)
         print(shardServerMap)
@@ -457,8 +458,8 @@ def remove_servers():
 def read_data():
     try:
         # Extract data from the request
-        global database_configuration
-        payload_json = request.json
+        # global database_configuration
+        payload_json = request.get_json()
         stud_id_range = payload_json["Stud_id"]
 
         # Placeholder for queried shards and data
@@ -466,25 +467,41 @@ def read_data():
         queried_data = []
 
         # Iterate through shards to find relevant ones based on Stud id range
-        for shard in database_configuration["shards"]:
-            shard_id = shard["Shard_id"]
-            stud_id_low = shard["Stud_id_low"]
-            shard_size = shard["Shard_size"]
+        shardList = queryHandler.getShardList()
+        for shard in shardList:
+            stud_id_low = queryHandler.getStud_id_low(shardName=shard)
+            shard_size = queryHandler.getStud_size(shardName=shard)
 
             # Check if the shard contains relevant data based on the Stud id range
             if stud_id_low <= stud_id_range["high"] and (stud_id_low + shard_size) >= stud_id_range["low"]:
-                shards_queried.append(shard_id)
+                shards_queried.append(shard)
 
                 # Placeholder for data in the shard
                 shard_data = []
 
                 # Fetch data from the shard based on Stud id range
-                for i in range(stud_id_range["low"], stud_id_range["high"] + 1):
-                    shard_data.append({
-                        "Stud_id": i,
-                        "Stud_name": f"Student{i}",
-                        "Stud_marks": i % 100
-                    })
+                # for i in range(stud_id_range["low"], stud_id_range["high"] + 1):
+                #     shard_data.append({
+                #         "Stud_id": i,
+                #         "Stud_name": f"Student{i}",
+                #         "Stud_marks": i % 100
+                #     })
+                serverPayload_json ={
+                    "shard" :shard,
+                    "Stud_id": stud_id_low###########This part left ashamegh see here##########
+
+                    }
+                serverList = queryHandler.getServerList()
+                flag = True
+                for server in serverList:
+                    try:
+                        url = f"http://{server}:5000/read"
+                        res=requests.post(url,json=serverPayload_json)
+                        flag=False
+                        logger.info(f"Response from {server} is :{res}")
+                        success_count+=1
+                    except Exception as e:
+                        logger.info(f"Reading failure")
 
                 queried_data.extend(shard_data)
 
@@ -507,7 +524,7 @@ def read_data():
 def write_data():
     try:
         # Extract data from the request
-        global database_configuration, mutex_locks
+        global mutex_locks
         payload_json = request.get_json()
         data = payload_json["data"]
         # Placeholder for response details
@@ -525,19 +542,37 @@ def write_data():
 
             try:
                 # Get all servers having replicas of the shard
-                servers = database_configuration["servers"].get(shard_id, [])
-
+                # servers = database_configuration["servers"].get(shard_id, [])
+                serverList = queryHandler.whereIsShard(shardID=shard_id)
                 # Write entries in all servers of the shard
-                write_successful = write_entries_to_servers(servers, entry)
+                for server in serverList:
+                # write_successful = write_entries_to_servers(servers, entry)
+                    currID = queryHandler.getCurrIdx(shardName=shard_id)
+                    serverPayload_json ={
+                    "shard" :shard_id,
+                    "curr_idx" : currID,
+                    "data" : entry
+                    }
+                    try:
+                        url = f"http://{server}:5000/write"
+                        res=requests.post(url,json=serverPayload_json)
+                        logger.info(f"Response from {server} is :{res}")
+                        success_count+=1
+                    except Exception as e:
+                        logger.info(f"The Data entrie is not added with stud_id {stud_id} in shard_id {shard_id} on {server}")
 
-                # Update the valid idx of the shard in the metadata if writes are successful
-                if write_successful:
-                    update_valid_idx(shard_id)
+                    #update currIDX
+                    queryHandler.updateCurrIdx(currID+1,shardName=shard_id)
+    
 
-                    # Increment success count
-                    success_count += 1
-                else:
-                    failed_entries.append(entry)
+                # # Update the valid idx of the shard in the metadata if writes are successful
+                # if success_count :
+                #     update_valid_idx(shard_id)
+
+                #     # Increment success count
+                #     success_count += 1
+                # else:
+                #     failed_entries.append(entry)
 
             finally:
                 # Release the mutex lock for the shard
@@ -560,12 +595,13 @@ def write_data():
 
 # Function to get the shard id based on the Stud id
 def get_shard_id(stud_id):
-    for shard in database_configuration["shards"]:
-        stud_id_low = shard["Stud_id_low"]
-        shard_size = shard["Shard_size"]
+    shardList = queryHandler.getShardList()
+    for shardN in shardList:
+        stud_id_low = queryHandler.getStud_id_low(shardName=shardN)
+        shard_size = queryHandler.getStud_size(shardName=shardN)
 
         if stud_id_low <= stud_id < stud_id_low + shard_size:
-            return shard["Shard_id"]
+            return shardN
 
 # Function to write entries to all servers of a shard
 def write_entries_to_servers(servers, entry):
@@ -581,26 +617,43 @@ def update_valid_idx(shard_id):
 def update_data():
     try:
         # Extract data from the request
-        global database_configuration, mutex_locks
+        global  mutex_locks
         payload_json = request.get_json()
         stud_id = payload_json["Stud_id"]
-        data_entry =payload_json["data"]
-
-        # Get the shard id for the provided Stud id
-        shard_id = get_shard_id(int(stud_id))
-
-        # Acquire mutex lock for the shard
-        mutex_lock = mutex_locks[shard_id]
-        mutex_lock.acquire()
+        data =payload_json["data"]
 
         try:
-            # Get all servers having replicas of the shard
-            servers = database_configuration["servers"].get(shard_id, [])
+            shardName = get_shard_id(stud_id)
+            # if stud_id<4096:
+            #     shardName = "sh1"
+            # elif stud_id <8192:
+            #     shardName = "sh2"
+            # elif stud_id <12288:
+            #     shardName = "sh3"
+            # else:
+            #     return jsonify("Invalid stud_id"),404
+            servers = queryHandler.whereIsShard(shardName)
+             # Acquire mutex lock for the shard
+            mutex_lock = mutex_locks[shardName]
+            mutex_lock.acquire()
+            updateShard = 0
+            serverPayload_json ={
+                    "shard" :shardName,
+                    "Stud_id" :stud_id,
+                    "data" : data
+            }
+            for server in servers:
+                
+                try:
+                    url = f"http://{server}:5000/update"
+                    res=requests.post(url,json=serverPayload_json)
+                    logger.info(f"Response from {server} is :{res}")
+                    updateShard+=1
+                except Exception as e:
+                    logger.info(f"The stud_id {stud_id} is not updated on {server}")
 
-            # Update the data entry in all servers of the shard
-            update_successful = update_entry_in_servers(servers, data_entry)
 
-            if update_successful:
+            if updateShard==len(servers):
                 response_data = {
                     "message": f"Data entry for Stud_id: {stud_id} updated",
                     "status": "success"
@@ -624,19 +677,19 @@ def update_data():
         }
         return jsonify(error_response), 500
 
-# Function to get the shard id based on the Stud id
-def get_shard_id(stud_id):
-    for shard in database_configuration["shards"]:
-        stud_id_low = shard["Stud_id_low"]
-        shard_size = shard["Shard_size"]
+# # Function to get the shard id based on the Stud id
+# def get_shard_id(stud_id):
+#     for shard in database_configuration["shards"]:
+#         stud_id_low = shard["Stud_id_low"]
+#         shard_size = shard["Shard_size"]
 
-        if stud_id_low <= stud_id < stud_id_low + shard_size:
-            return shard["Shard_id"]
+#         if stud_id_low <= stud_id < stud_id_low + shard_size:
+#             return shard["Shard_id"]
 
-# Function to update an entry in all servers of a shard
-def update_entry_in_servers(servers, data_entry):
-    time.sleep(0.1)
-    return True
+# # Function to update an entry in all servers of a shard
+# def update_entry_in_servers(servers, data_entry):
+#     time.sleep(0.1)
+#     return True
 
 @app.route('/del', methods=['DELETE'])
 def delete_data():
@@ -646,21 +699,41 @@ def delete_data():
         payload_json = request.get_json()
         stud_id = payload_json["Stud_id"]
 
-        # Get the shard id for the provided Stud id
-        shard_id = get_shard_id(int(stud_id))
+        # # Get the shard id for the provided Stud id
+        # shard_id = get_shard_id(int(stud_id))
 
-        # Acquire mutex lock for the shard
-        mutex_lock = mutex_locks[shard_id]
-        mutex_lock.acquire()
+        # # Acquire mutex lock for the shard
+        # mutex_lock = mutex_locks[shard_id]
+        # mutex_lock.acquire()
 
         try:
-            # Get all servers having replicas of the shard
-            servers = database_configuration["servers"].get(shard_id, [])
-
-            # Delete the data entry from all servers of the shard
-            delete_successful = delete_entry_from_servers(servers, stud_id)
-
-            if delete_successful:
+            if stud_id<4096:
+                shardName = "sh1"
+            elif stud_id <8192:
+                shardName = "sh2"
+            elif stud_id <12288:
+                shardName = "sh3"
+            else:
+                return jsonify("Invalid stud_id"),404
+            servers = queryHandler.whereIsShard(shardName)
+             # Acquire mutex lock for the shard
+            mutex_lock = mutex_locks[shardName]
+            mutex_lock.acquire()
+            updateShard = 0
+            serverPayload_json ={
+                    "shard" :shardName,
+                    "Stud_id" :stud_id
+            }
+            for server in servers:
+                
+                try:
+                    url = f"http://{server}:5000/del"
+                    res=requests.post(url,json=serverPayload_json)
+                    logger.info(f"Response from {server} is :{res}")
+                    updateShard+=1
+                except Exception as e:
+                    logger.info(f"The stud_id {stud_id} is deleted on {server}")
+            if updateShard:
                 response_data = {
                     "message": f"Data entry with Stud_id:{stud_id} removed from all replicas",
                     "status": "success"
@@ -684,19 +757,19 @@ def delete_data():
         }
         return jsonify(error_response), 500
 
-# Function to get the shard id based on the Stud id
-def get_shard_id(stud_id):
-    for shard in database_configuration["shards"]:
-        stud_id_low = shard["Stud_id_low"]
-        shard_size = shard["Shard_size"]
+# # Function to get the shard id based on the Stud id
+# def get_shard_id(stud_id):
+#     for shard in database_configuration["shards"]:
+#         stud_id_low = shard["Stud_id_low"]
+#         shard_size = shard["Shard_size"]
 
-        if stud_id_low <= stud_id < stud_id_low + shard_size:
-            return shard["Shard_id"]
+#         if stud_id_low <= stud_id < stud_id_low + shard_size:
+#             return shard["Shard_id"]
 
-# Function to delete an entry from all servers of a shard
-def delete_entry_from_servers(servers, stud_id):
-    time.sleep(0.1)
-    return True
+# # Function to delete an entry from all servers of a shard
+# def delete_entry_from_servers(servers, stud_id):
+#     time.sleep(0.1)
+#     return True
 
 if  __name__ == '__main__':
     

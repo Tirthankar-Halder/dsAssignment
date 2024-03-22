@@ -288,6 +288,12 @@ class SQLHandler:
             return [x[0] for x in res]
         except Exception as e:
             return str(e)
+    def getShardList(self):
+        try:
+            res = self.query(f"SELECT DISTINCT Shard_id FROM mapT")
+            return [x[0] for x in res]
+        except Exception as e:
+            return str(e)
     def getShardInfo(self):
         try:
             res = self.query(f"SELECT Stud_id_low, Shard_id, Shard_size FROM shardT")
@@ -313,6 +319,33 @@ class SQLHandler:
             return message,1
         except Exception as e:
             return str(e),0
+    def getStud_id_low(self,shardName):
+        try:
+            res = self.query(f"SELECT Stud_id_low FROM shardT where Shard_id = '{shardName}'")
+            return res[0][0],1
+        except Exception as e:
+            return str(e),0
+    def getStud_size(self,shardName):
+        try:
+            res = self.query(f"SELECT Stud_size FROM shardT where Shard_id = '{shardName}'")
+            return res[0][0],1
+        except Exception as e:
+            return str(e),0
+    def getCurrIdx(self,shardName):
+        try:
+            res = self.query(f"SELECT valid_idx FROM shardT where Shard_id = '{shardName}'")
+            return res[0][0],1
+        except Exception as e:
+            return str(e),0
+    def updateCurrIdx(self,noofEntry,shardName):
+        try:
+            self.nrq(f"UPDATE valid_idx SET Stud_id={noofEntry} WHERE Shard_id = {shardName}")
+        except Exception as e:
+            return str(e),0
+
+
+        
+
     
 # def env_config():
 #     config={}
