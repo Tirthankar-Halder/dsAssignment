@@ -33,7 +33,7 @@ class ConsistentHashMap:
                 i+=1#random.randint(1,1000)
 
             self.hash_map[slot] = virtual_server_id
-            self.logger.info(f"Added server container {virtual_server_id} to slot {slot}")
+            # self.logger.info(f"Added server container {virtual_server_id} to slot {slot}")
     
     def remove_server_container(self, server_container_Name_id):
         for j in range(self.num_virtual_servers):

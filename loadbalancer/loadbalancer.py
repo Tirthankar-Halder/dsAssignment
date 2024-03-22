@@ -236,7 +236,7 @@ def initialize_database():
     print("inside api")
 
     try:
-        global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema
+        global mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema
         # Extract data from the request
         print("got payload")
         
@@ -295,15 +295,16 @@ def initialize_database():
             id = shard['Shard_id']
             shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
             serverContainer = queryHandler.whereIsShard(id)
-            print("servers for a shard:",serverContainer)
-            logger.info("servers for a shard:",serverContainer)
+            print(f"servers for a shard {shard}: {serverContainer}")
+            logger.info(f"servers for a shard:{serverContainer}")
             for server in serverContainer:
                 shardServerMap[id].add_server_container(server)
         print(shardServerMap)
         mutex_locks = {shard["Shard_id"]: threading.Lock() for shard in shards}
         print(mutex_locks)
-        print("ConsistantHashMap Shard")
-        logger.info("ConsistantHashMap Shard")
+        print("ConsistantHashMap Shard Initialized")
+        logger.info("ConsistantHashMap Shard Initialized ")
+        logger.info("Mutex Lock init")
         
         # /config call of individual servers.
         print(servers)
@@ -320,6 +321,7 @@ def initialize_database():
                 "schema": schema,
                 "shards": shardsinserver
             }
+            logger.info(f"Server paylod at config: {serverPayload_json}")
             print(serverPayload_json)
             tries = 0
             print("Calling config for ",server)
@@ -517,7 +519,7 @@ def select_random_elements(A, B, n):
 
 @app.route('/rm', methods=['DELETE'])
 def remove_servers():
-    global database_configuration,mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema, SHARD_REPLICAS
+    global mutex_locks,replicas,shardServerMap, MAX_RETRIES,schema, SHARD_REPLICAS
     
     try:
         # Extract data from the request
@@ -638,10 +640,11 @@ def read_data():
         # Iterate through shards to find relevant ones based on Stud id range
         shardList = queryHandler.getShardList()
         for shard in shardList:
-            stud_id_low = queryHandler.getStud_id_low(shardName=shard)
-            shard_size = queryHandler.getStud_size(shardName=shard)
+            stud_id_low,_ = queryHandler.getStud_id_low(shardName=shard)
+            shard_size,__ = queryHandler.getStud_size(shardName=shard)
 
             # Check if the shard contains relevant data based on the Stud id range
+            # low:5000 high:8000
             if stud_id_low <= stud_id_range["high"] and (stud_id_low + shard_size) >= stud_id_range["low"]:
                 shards_queried.append(shard)
 
@@ -657,22 +660,20 @@ def read_data():
                 #     })
                 serverPayload_json ={
                     "shard" :shard,
-                    "Stud_id": stud_id_low###########This part left ashamegh see here##########
-
+                    "Stud_id": stud_id_range
                     }
-                serverList = queryHandler.getServerList()
-                flag = True
-                for server in serverList:
-                    try:
-                        url = f"http://{server}:5000/read"
-                        res=requests.post(url,json=serverPayload_json)
-                        flag=False
-                        logger.info(f"Response from {server} is :{res}")
-                        success_count+=1
-                    except Exception as e:
-                        logger.info(f"Reading failure")
+                req_id=random.randint(100000,999999)
+                server = shardServerMap[shard].get_server_container(req_id)   
+                try:
+                    url = f"http://{server}:5000/read"
+                    res=requests.post(url,json=serverPayload_json)
+                    # flag=False
+                    logger.info(f"Response from {server} is :{res}")
+                    # success_count+=1
+                except Exception as e:
+                    logger.info(f"Reading failure")
 
-                queried_data.extend(shard_data)
+                queried_data.extend(res["data"])
 
         response_data = {
             "shards_queried": shards_queried,
@@ -696,35 +697,37 @@ def write_data():
         global mutex_locks
         payload_json = request.get_json()
         data = payload_json["data"]
-        # Placeholder for response details
+        logger.info(f"Fetched data: {data}")
         success_count = 0
         failed_entries = []
-
+        
         # Iterate through data entries and write to the database
         for entry in data:
+            logger.info(f"Entry in data: {entry}")
             stud_id = entry["Stud_id"]
             shard_id = get_shard_id(stud_id)
 
             # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shard_id]
             mutex_lock.acquire()
-
+            logger.info("Mutex lock accquired")
             try:
                 # Get all servers having replicas of the shard
-                # servers = database_configuration["servers"].get(shard_id, [])
                 serverList = queryHandler.whereIsShard(shardID=shard_id)
                 # Write entries in all servers of the shard
                 for server in serverList:
                 # write_successful = write_entries_to_servers(servers, entry)
-                    currID = queryHandler.getCurrIdx(shardName=shard_id)
+                    currID,___ = queryHandler.getCurrIdx(shardName=shard_id)
                     serverPayload_json ={
-                    "shard" :shard_id,
+                    "shard" :f"{shard_id}",
                     "curr_idx" : currID,
-                    "data" : entry
+                    "data" : [entry]
                     }
+                    logger.info(f"payload - {serverPayload_json}")
+                    logger.info(f"{shard_id} is available on {server}")
                     try:
                         url = f"http://{server}:5000/write"
-                        res=requests.post(url,json=serverPayload_json)
+                        res=requests.post(url,json=serverPayload_json).json()
                         logger.info(f"Response from {server} is :{res}")
                         success_count+=1
                     except Exception as e:
@@ -732,20 +735,11 @@ def write_data():
 
                     #update currIDX
                     queryHandler.updateCurrIdx(currID+1,shardName=shard_id)
-    
-
-                # # Update the valid idx of the shard in the metadata if writes are successful
-                # if success_count :
-                #     update_valid_idx(shard_id)
-
-                #     # Increment success count
-                #     success_count += 1
-                # else:
-                #     failed_entries.append(entry)
-
+                    logger.info("updated current index")
             finally:
                 # Release the mutex lock for the shard
                 mutex_lock.release()
+                logger.info("mutex lock released")
 
         # Dummy response for demonstration purposes
         response_data = {
@@ -764,11 +758,12 @@ def write_data():
 
 # Function to get the shard id based on the Stud id
 def get_shard_id(stud_id):
+    logger.info("Fetching Shard_id")
     shardList = queryHandler.getShardList()
     for shardN in shardList:
-        stud_id_low = queryHandler.getStud_id_low(shardName=shardN)
-        shard_size = queryHandler.getStud_size(shardName=shardN)
-
+        stud_id_low,_ = queryHandler.getStud_id_low(shardName=shardN)
+        shard_size,__ = queryHandler.getStud_size(shardName=shardN)
+        logger.info(f"ShardID : {shardN} Stud_id_low: {stud_id_low} Shard_size: { shard_size}")
         if stud_id_low <= stud_id < stud_id_low + shard_size:
             return shardN
 
@@ -876,14 +871,15 @@ def delete_data():
         # mutex_lock.acquire()
 
         try:
-            if stud_id<4096:
-                shardName = "sh1"
-            elif stud_id <8192:
-                shardName = "sh2"
-            elif stud_id <12288:
-                shardName = "sh3"
-            else:
-                return jsonify("Invalid stud_id"),404
+            # if stud_id<4096:
+            #     shardName = "sh1"
+            # elif stud_id <8192:
+            #     shardName = "sh2"
+            # elif stud_id <12288:
+            #     shardName = "sh3"
+            # else:
+            #     return jsonify("Invalid stud_id"),404
+            shardName = get_shard_id(stud_id=stud_id)
             servers = queryHandler.whereIsShard(shardName)
              # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shardName]

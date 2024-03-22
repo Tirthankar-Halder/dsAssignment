@@ -269,8 +269,8 @@ class SQLHandler:
         
     def whereIsShard(self, shardID):
         try:
-            print(shardID)
-            print(f"SELECT DISTINCT Server_id FROM mapT WHERE Shard_id = '{shardID}'")
+            # print(shardID)
+            # print(f"SELECT DISTINCT Server_id FROM mapT WHERE Shard_id = '{shardID}'")
             res = self.query(f"SELECT DISTINCT Server_id FROM mapT WHERE Shard_id = '{shardID}'")
             return [x[0] for x in res]
         except Exception as e:
@@ -331,7 +331,7 @@ class SQLHandler:
             return str(e),0
     def getStud_size(self,shardName):
         try:
-            res = self.query(f"SELECT Stud_size FROM shardT where Shard_id = '{shardName}'")
+            res = self.query(f"SELECT Shard_size FROM shardT where Shard_id = '{shardName}'")
             return res[0][0],1
         except Exception as e:
             return str(e),0
@@ -343,7 +343,7 @@ class SQLHandler:
             return str(e),0
     def updateCurrIdx(self,noofEntry,shardName):
         try:
-            self.nrq(f"UPDATE valid_idx SET Stud_id={noofEntry} WHERE Shard_id = {shardName}")
+            self.nrq(f"UPDATE shardT SET valid_idx={noofEntry} WHERE Shard_id = '{shardName}'")
         except Exception as e:
             return str(e),0
 
@@ -352,7 +352,6 @@ class SQLHandler:
 
     
 # def env_config():
-#     config={}
 #     config['persist']=True if os.environ['PERSIST']=='yes' else False
 #     config['broker_id']=os.environ['BID']
 # #     return config

@@ -100,27 +100,27 @@ class SQLHandler:
             cursor = self.mydb.cursor()
             cursor.execute(sql)
         res=cursor.fetchall()
-        print(res)
+        # print(res)
         cursor.close()
         self.mydb.commit()
         return res
 
     def UseDB(self,dbname=None):
         res=self.query("SHOW DATABASES")
-        print(res)
+        # print(res)
         if dbname not in [r[0] for r in res]:
             self.nrq(f"CREATE DATABASE {dbname}")
         self.nrq(f"USE {dbname}")
 
     def DropDB(self,dbname=None):
         res=self.query("SHOW DATABASES")
-        print(res)
+        # print(res)
         if dbname in [r[0] for r in res]:
             self.nrq(f"DROP DATABASE {dbname}")
 
     def hasTable(self,tabname=None,columns=None,dtypes=None):
         res=self.query("SHOW TABLES")
-        print(res)
+        # print(res)
         if tabname not in [r[0] for r in res]:
             dmap={'Number':'INT','String':'VARCHAR(32)'}
             col_config=''
@@ -131,7 +131,7 @@ class SQLHandler:
                     flag = False
                 else: 
                     col_config+=f", {c} {dmap[d]}"
-            print(f"CREATE TABLE {tabname} ({col_config});")
+            # print(f"CREATE TABLE {tabname} ({col_config});")
             self.nrq(f"CREATE TABLE {tabname} ({col_config});")
         return tabname
 
