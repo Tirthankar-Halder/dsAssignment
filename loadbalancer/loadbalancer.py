@@ -830,45 +830,37 @@ def update_data():
 def delete_data():
     try:
         # Extract data from the request
-        global database_configuration, mutex_locks
+        global mutex_locks
         payload_json = request.get_json()
         stud_id = payload_json["Stud_id"]
-
-        # # Get the shard id for the provided Stud id
-        # shard_id = get_shard_id(int(stud_id))
-
-        # # Acquire mutex lock for the shard
-        # mutex_lock = mutex_locks[shard_id]
-        # mutex_lock.acquire()
-
+        logger.info(f"fetched payload {stud_id}")
         try:
-            # if stud_id<4096:
-            #     shardName = "sh1"
-            # elif stud_id <8192:
-            #     shardName = "sh2"
-            # elif stud_id <12288:
-            #     shardName = "sh3"
-            # else:
-            #     return jsonify("Invalid stud_id"),404
+            # Get the shard id for the provided Stud id
             shardName = get_shard_id(stud_id=stud_id)
+            logger.info(f"{stud_id} is in {shardName}")
             servers = queryHandler.whereIsShard(shardName)
+            logger.info(f"{shardName} is in {servers}")
              # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shardName]
             mutex_lock.acquire()
+            logger.info(f"{shardName} Mutex lock acquired")
             updateShard = 0
             serverPayload_json ={
                     "shard" :shardName,
                     "Stud_id" :stud_id
             }
             for server in servers:
-                
+                currID,___ = queryHandler.getCurrIdx(shardName=shardName)
                 try:
                     url = f"http://{server}:5000/del"
-                    res=requests.post(url,json=serverPayload_json)
+                    res=requests.delete(url,json=serverPayload_json).json()
                     logger.info(f"Response from {server} is :{res}")
                     updateShard+=1
                 except Exception as e:
                     logger.info(f"The stud_id {stud_id} is deleted on {server}")
+                #update currIDX
+                queryHandler.updateCurrIdx(currID-1,shardName=shardName)
+                logger.info("updated current index")
             if updateShard:
                 response_data = {
                     "message": f"Data entry with Stud_id:{stud_id} removed from all replicas",
@@ -892,20 +884,6 @@ def delete_data():
             "status": "error"
         }
         return jsonify(error_response), 500
-
-# # Function to get the shard id based on the Stud id
-# def get_shard_id(stud_id):
-#     for shard in database_configuration["shards"]:
-#         stud_id_low = shard["Stud_id_low"]
-#         shard_size = shard["Shard_size"]
-
-#         if stud_id_low <= stud_id < stud_id_low + shard_size:
-#             return shard["Shard_id"]
-
-# # Function to delete an entry from all servers of a shard
-# def delete_entry_from_servers(servers, stud_id):
-#     time.sleep(0.1)
-#     return True
 
 if  __name__ == '__main__':
     
