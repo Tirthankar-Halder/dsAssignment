@@ -27,11 +27,10 @@ the event of the addition of resources to the system. Load Balancer uses consist
 evenly among the server instances (i.e., balancing the system load). Moreover, consistent hashing technique is also used in
 distributed caching systems for better utilization of resources.</li>
 
-<li><strong>Server</strong> has two endpoints "/home" endpoint returns a unique identifier to distinguish among the replicas and "/heartbeat" this endpoint sends heartbeat responses upon request. The load balancer further
-uses the heartbeat endpoint to identify failures in the set of containers maintained by it.</li>
+<li><strong>Server</strong> has eight endpoints "/config" endpoint initializes the sharded database in individual servers, "/heartbeat" this endpoint sends heartbeat responses upon request. The load balancer further
+uses the heartbeat endpoint to identify failures in the set of containers maintained by it. "/copy" endpoint returns all the contents of a particular shard on a particular server. "/read" endpoint returns all the entries within a particular Student ID range. "/write" endpoint inserts entries into the sharded student databse. Once an entry is inserted it can be modified by the "/update" endpoint and can be removed by the "del" endpoint</li>
 
-<li><strong>Shard</strong> has two endpoints "/home" endpoint returns a unique identifier to distinguish among the replicas and "/heartbeat" this endpoint sends heartbeat responses upon request. The load balancer further
-uses the heartbeat endpoint to identify failures in the set of containers maintained by it.</li>
+<li><strong>Shard</strong> The Student databse is sharded to ensure horizontal scalability.</li>
 
 </ol>
 
@@ -47,6 +46,11 @@ physical server instances equally.
 
 ## Assignment - II
 
++ We take a random six digit server ID where ever there is input of format Server[n].
+
++ For removing servers, if the no.of servers are more than the length of Hostname then random servers are chosen and removed.
+
++ the "/init" endpoint of the loadbalancer is used once only at the begining or after downscaling the servers to 0.
 
 
 # Challenges
