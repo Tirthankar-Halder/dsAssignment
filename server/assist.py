@@ -172,7 +172,6 @@ class SQLHandler:
         c=0
         for data in row:
             try:
-                
                 self.nrq(f"INSERT INTO {table_name} (Stud_id, Stud_name, Stud_marks) VALUES ({int(data['Stud_id'])},'{str(data['Stud_name'])}',{str(data['Stud_marks'])})")
                 c+=1
             except Exception as e:

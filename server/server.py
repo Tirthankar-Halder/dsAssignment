@@ -3,7 +3,10 @@ import sqlite3
 import mysql.connector
 import os
 from assist import *
-# import logging 
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger('Server:')
+    
 
 # logging.basicConfig(filename="serverLog.log",format='%(asctime)s %(message)s',filemode = 'w')
 
@@ -62,6 +65,7 @@ def dropDB():
 shard_configurations = {}
 @app.route('/config', methods=['POST'])
 def configure_shards():
+    server_id = os.getenv('SERVER_ID', 'Unknown')
     try:
         payload_json = request.get_json()
         schema = payload_json.get('schema')
@@ -74,7 +78,7 @@ def configure_shards():
         dtypes = payload_json['schema']['dtypes']
         for shard in shardsName:
             tabName = queryHandler.hasTable(tabname=shard,columns=columnsName,dtypes=dtypes)
-            shard_configurations[shard] = f"Server0:{shard} configured"
+            shard_configurations[shard] = f"{server_id} : {shard} configured"
         response_json = {
             "message": ", ".join(shard_configurations.values()),
             "status" : "success"
@@ -104,7 +108,8 @@ def copy_shard_data():
             res,res_c = queryHandler.Copy(shard)
             c+=res_c
             print(res)
-            response_data[shard] = str(res)
+            # response_data[shard] = str(res)
+            response_data[shard] = res
         
         if c==0:
              
@@ -167,6 +172,7 @@ def write_shard_data():
         return jsonify({"error": "Invalid payload structure"}), 400
     
     error = queryHandler.Insert(table_name=shardName,row=newData)
+    logger.info("Data inserted")
     if error:
         return jsonify({"error": str(error)}),404
     shard_index[shardName] = currID + len(newData)
