@@ -70,14 +70,18 @@ def replica_status(replicas):
     
     while True:
         ####################Respwn Method 1###############################
-
+        global schema
         for replica in replicas:
 
-            alive = None
+            # alive = None
             alive = os.system(f"ping -c 1 {replica}")
-            if alive is None:
+            logger.info(f"Livenness of {replica} is {alive}")
+            if alive :
+                logger.info(f"{replica} is down... Trying to Re-initialize ...")
+                res = os.popen(f"sudo docker rm {replica}")
                 shradinReplica = queryHandler.getShardsinServer(replica)
                 res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
+                # res=os.popen(f"sudo docker restart {replica}").read()
                 time.sleep(20)
 
                 logger.info("Bro I am waiting for server to Re-initilize....... ")
@@ -152,8 +156,8 @@ def replica_status(replicas):
 ################ Calling Server thread ###############
 # server_thread = threading.Thread(target=replica_status,args=(replicas,))
 # server_thread.start()
-# server_thread = threading.Thread(target=replica_status,args=(replicas,))
-# server_thread.start()
+server_thread = threading.Thread(target=replica_status,args=(replicas,))
+server_thread.start()
 
 
 
@@ -691,6 +695,7 @@ def remove_servers():
 
         # kill server containers
         for server in servers_to_remove:
+            # replicas.remove(server)
             os.system(f"sudo docker stop {server} && sudo docker rm {server}")
             logger.info(f"stopped {server}")
         
