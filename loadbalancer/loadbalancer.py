@@ -75,12 +75,55 @@ def replica_status(replicas):
             alive = None
             alive = os.system(f"ping -c 1 {replica}")
             if alive is None:
+                shradinReplica = queryHandler.getShardsinServer(replica)
                 res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
+                time.sleep(20)
+
+                logger.info("Bro I am waiting for server to initilize....... ")
+            logger.info(f"call for individual server:{replica}")
+            # shardsinserver = queryHandler.getShardsinServer(server)
+            logger.info(f"shards list inside server : {shradinReplica}")
+            serverPayload_json = {
+                "schema": schema,
+                "shards": shradinReplica
+            }
+            logger.info(f"Server paylod at config: {serverPayload_json}")
+            print(serverPayload_json)
+            tries = 0
+            print("Calling config for ",replica)
+            logger.info(f"Calling config for {replica}")
+            
+            try:
+                url = f"http://{replica}:5000/config"
+                res=requests.post(url,json=serverPayload_json).json()
+                logger.info(f"Response from {replica} is :{res}")
+            except Exception as e:
+                logger.info(f"The routed {replica} is not yet Initialized, Retrying ....{tries}")
+
+                # if replica not in queryHandler.getServerList():
+                #     #handled: skipped if server is already present(valid for second time init call)
+                #     if replica.find("[") != -1:
+                #         #Handled Server[5] Case
+                #         while True:
+                #             #if randomly choosed server is present in keyist
+                #             serverName = f"Server{random.randint(0,999999999)}" 
+                #             os.system(f'sudo docker run --name {serverName} --network net1 --network-alias {serverName} -e "SERVER_ID={serverName}" -d server:latest')
+                #             replicas.append(serverName)
+                #             if serverName != replica :
+                #                 #replaced the server key information with randomly choosed name
+                #                 replicas[serverName] = replicas[replica]
+                #                 del replicas[replica]
+                #             break
+                #     else:
+                #         os.system(f'sudo docker run --name {replica} --network net1 --network-alias {replica} -e "SERVER_ID={replica}" -d server:latest')
+                #         replicas.append(replica)
+                #     logger.info(f"Container {replica} is added. New available server : {replicas}")
 
                 if len(res)==0:
                     print(f"Unable to start {replica}")
                 else:
                     print(f"successfully started {replica}")
+                    
 
         ####################Respwn Method 2###############################
 
@@ -313,9 +356,9 @@ def initialize_database():
         time.sleep(20)
 
 
-        # ################ Calling Server thread ###############
-        # server_thread = threading.Thread(target=replica_status,args=(replicas,))
-        # server_thread.start()
+        ################ Calling Server thread ###############
+        server_thread = threading.Thread(target=replica_status,args=(replicas,))
+        server_thread.start()
 
 
         logger.info("Bro I am waiting for server to initilize....... ")
