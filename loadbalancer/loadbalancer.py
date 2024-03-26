@@ -648,18 +648,26 @@ def remove_servers():
         for shard in danger:
         
             randomServer = random.sample(replicas,SHARD_REPLICAS)
+            logger.info(f"start migrating {shard} to {randomServer}")
             #send config of shard to random server 
             configJSON = {
                 "schema": schema,
-                "shards": shard
+                "shards": [shard]
             }
+            logger.info(f"config JSON - {configJSON}")
             for newLoc in randomServer:
                 url = f"http://{newLoc}:5000/config"
-                res=requests.post(url,json=configJSON)
+                res=requests.post(url,json=configJSON).json()
+                if(res["status"]=="success"):
+                    logger.info(f"configured {shard} in {newLoc}")
+                else:
+                    logger.info(f"FAILURE in configuring {shard} in {newLoc}")
             #copy contents from old server
+            
             copyJSON = {
-                "shards" : shard
+                "shards" : [shard]
             }
+            logger.info(f"copy JSON - {copyJSON}")
             url = f"http://{deletedShards[shard][0]}:5000/copy"
             copyRES = requests.get(url,json=copyJSON).json()
             data = copyRES[shard]            
@@ -671,9 +679,9 @@ def remove_servers():
             }
             for newLoc in randomServer:
                 url = f"http://{newLoc}:5000/write"
-                writeRES = requests.post(url, payload_json = writeJSON).json()
-                logger.info(f"transfere to {newLoc} status -{writeRES}")
-            
+                writeRES = requests.post(url, json = writeJSON).json()
+                logger.info(f"transfered to {newLoc} status -{writeRES}")
+                
             
             for newLoc in randomServer:
                 #update mapT

@@ -1,8 +1,12 @@
 Implimenting a Customizable Load Balancer
 
+## Assignment - I
+
 <p align="center">
       <img src="assets/assign_1.png" width="70%"/>
 </p>
+
+## Assignment - II
 
 <p align="center">
       <img src="assets/assign_2.png" width="70%"/>
@@ -138,6 +142,9 @@ Test results are as follows:
       <img src="results/AnalysisServerAddition.jpg" width="50%"/>
 </p>
 
+## Assignment - II
+
+# Edge-Cases
 ## Assignment - II
 
 # Contact Me
