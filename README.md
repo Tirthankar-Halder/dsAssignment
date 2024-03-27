@@ -31,6 +31,13 @@ We use Python as a programming language and<strong> Flask </strong>module for ht
 the event of the addition of resources to the system. Load Balancer uses consistent hashing to distribute client requests
 evenly among the server instances (i.e., balancing the system load). Moreover, consistent hashing technique is also used in
 distributed caching systems for better utilization of resources.</li>
+Consistent hashmap for shard sh1 will contain entries for servers {Server0:sh1, Server3:sh1, Server5:sh1}. Similarly
+each shard would have corresponding hashmap. Other constants for hashmap are as follows:
+
++ Total number of slots in the consistent hash map (#slots) = 512
++ Number of virtual servers for each server container (K) = log (512) = 9
++ Function for request mapping H(i), & virtual server mapping Phi(i, j) is what you found works best for your load
+balancer implementation.
 
 <li><strong>Server</strong> has eight endpoints "/config" endpoint initializes the sharded database in individual servers, "/heartbeat" this endpoint sends heartbeat responses upon request. The load balancer further
 uses the heartbeat endpoint to identify failures in the set of containers maintained by it. "/copy" endpoint returns all the contents of a particular shard on a particular server. "/read" endpoint returns all the entries within a particular Student ID range. "/write" endpoint inserts entries into the sharded student databse. Once an entry is inserted it can be modified by the "/update" endpoint and can be removed by the "del" endpoint</li>
@@ -167,6 +174,24 @@ physical server instances equally.
 + the "/init" endpoint of the loadbalancer is used once only at the begining or after downscaling the servers to 0.
 
 + As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7. We have made the no servers as constatant ,according to that we have distribued the shard over the available servers.
+
+Here we took default configauration as per Task 2:
+```
+    {
+        "N":6
+        "schema":{"columns":["Stud_id","Stud_name","Stud_marks"],
+        "dtypes":["Number","String","String"]}
+        "shards":[{"Stud_id_low":0, "Shard_id": "sh1", "Shard_size":4096},
+        {"Stud_id_low":4096, "Shard_id": "sh2", "Shard_size":4096},
+        {"Stud_id_low":8192, "Shard_id": "sh3", "Shard_size":4096},
+        {"Stud_id_low":12288, "Shard_id": "sh4", "Shard_size":4096}]"servers":{"Server0":["sh1","sh2"],
+        "Server1":["sh3","sh4"],
+        "Server3":["sh1","sh3"],
+        "Server4":["sh4","sh2"],
+        "Server5":["sh1","sh4"],
+        "Server6":["sh3","sh2"]}
+    }
+```
 
 # Challenges
 
