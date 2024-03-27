@@ -20,8 +20,13 @@ We use Python as a programming language and<strong> Flask </strong>module for ht
 
 
 <ol type="1">
- <li><strong>Load-balancer</strong> is mainly responsible for accepting asynchronous http requests from client and distributes among the servers.</li>
- 
+ <li><strong>Load-balancer</strong> is mainly responsible for accepting asynchronous/synchronous http requests from client,distributes among the servers and other several data interpretaion execution.</li>
+ The load balancer manages Stud id
+→ Shard id → Server id mapping with two data tables in the metadata. The table schemas are as follows:
+
++  ShardT (Stud id low: Number, Shard id: Number, Shard size:Number, valid idx:Number)
++ MapT (Shard id: Number, Server id: Number)
+
  <li><strong>Consistent Hashmap </strong> Consistent hashing has a unique hashing structure that is circular instead of linear to avoid many shifts of data in
 the event of the addition of resources to the system. Load Balancer uses consistent hashing to distribute client requests
 evenly among the server instances (i.e., balancing the system load). Moreover, consistent hashing technique is also used in
