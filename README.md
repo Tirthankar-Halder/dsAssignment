@@ -34,6 +34,115 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 
 </ol>
 
+## File Structure
+
+```
+├── assets
+│   ├── assign_1.png
+│   └── assign_2.png
+├── Assignment_2_server
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   ├── server_2.py
+│   ├── studTable.db
+│   └── table1.py
+├── async.py
+├── automateRequest.ipynb
+├── docker-compose.yml
+├── ioasync.ipynb
+├── loadbalancer
+│   ├── assist.py
+│   ├── consistant_HASHMAP_1.py
+│   ├── consistant_HASHMAP_2.py
+│   ├── consistant_HASHMAP_3.py
+│   ├── consistant_HASHMAP (copy).py
+│   ├── consistant_HASHMAP_LP.py
+│   ├── consistant_HASHMAP.py
+│   ├── custom-entry.sh
+│   ├── deleteMe.ipynb
+│   ├── deleteMe.py
+│   ├── deploy.sh
+│   ├── Dockerfile
+│   ├── helper.py
+│   ├── loadbalancer.py
+│   ├── __pycache__
+│   │   ├── assist.cpython-310.pyc
+│   │   ├── consistant_HASHMAP.cpython-310.pyc
+│   │   └── consistant_HASHMAP.cpython-39.pyc
+│   ├── requirements.txt
+│   ├── tempCodeRunnerFile.py
+│   └── test_consistant_HASHMAP.py
+├── Makefile
+├── payload_json.txt
+├── README.md
+├── results
+│   ├── AnalysisServerAddition_HashFunc_1.jpg
+│   ├── AnalysisServerAddition.jpg
+│   ├── AnalysisServerAddition_QuadraticProbing.jpg
+│   ├── AnalysisServerRemove_HashFunc_1.jpg
+│   ├── AnalysisServerRemove.jpg
+│   ├── AnalysisServerRemove_QuadraticProbing.jpg
+│   ├── Assign2_A1_Read.jpg
+│   ├── Assign2_A1_Write.jpg
+│   ├── Assign2_A2_Read.jpg
+│   ├── Assign2_A2_Write.jpg
+│   ├── Assign2_A3_Read.jpg
+│   └── Assign2_A3_Write.jpg
+├── server
+│   ├── assist.py
+│   ├── custom-entry.sh
+│   ├── deploy.sh
+│   ├── Dockerfile
+│   ├── helper.py
+│   ├── __pycache__
+│   │   ├── assist.cpython-310.pyc
+│   │   └── server.cpython-39.pyc
+│   ├── requirements.txt
+│   ├── response.json
+│   ├── serverLog.log
+│   ├── server.py
+│   ├── serverQuery.log
+│   ├── tempCodeRunnerFile.py
+│   └── test_server.py
+├── taskAna.ipynb
+├── tempDS
+│   ├── assets
+│   │   └── main_fig.png
+│   ├── async.py
+│   ├── docker-compose.yml
+│   ├── ioasync.ipynb
+│   ├── loadbalancer
+│   │   ├── consistant_HASHMAP_1.py
+│   │   ├── consistant_HASHMAP_2.py
+│   │   ├── consistant_HASHMAP_3.py
+│   │   ├── consistant_HASHMAP (copy).py
+│   │   ├── consistant_HASHMAP_LP.py
+│   │   ├── consistant_HASHMAP.py
+│   │   ├── deleteMe.py
+│   │   ├── Dockerfile
+│   │   ├── loadbalancer.py
+│   │   ├── __pycache__
+│   │   │   └── consistant_HASHMAP.cpython-39.pyc
+│   │   ├── requirements.txt
+│   │   ├── tempCodeRunnerFile.py
+│   │   └── test_consistant_HASHMAP.py
+│   ├── Makefile
+│   ├── README.md
+│   ├── results
+│   │   ├── AnalysisServerAddition_HashFunc_1.jpg
+│   │   ├── AnalysisServerAddition.jpg
+│   │   ├── AnalysisServerAddition_QuadraticProbing.jpg
+│   │   ├── AnalysisServerRemove_HashFunc_1.jpg
+│   │   ├── AnalysisServerRemove.jpg
+│   │   └── AnalysisServerRemove_QuadraticProbing.jpg
+│   └── server
+│       ├── Dockerfile
+│       ├── requirements.txt
+│       ├── server_2.py
+│       ├── studTable.db
+│       └── table1.py
+└── Untitled-1
+```
 # Assumptions
 ## Assignment - I
 
@@ -260,7 +369,7 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
         time.sleep(5)
 
 
-        
+
     ############### Calling Server thread ###############
     server_thread = threading.Thread(target=replica_status)
     server_thread.start()
