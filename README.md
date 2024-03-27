@@ -161,6 +161,7 @@ physical server instances equally.
 
 + the "/init" endpoint of the loadbalancer is used once only at the begining or after downscaling the servers to 0.
 
++ As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7. We have made the no servers as constatant ,according to that we have distribued the shard over the available servers.
 
 # Challenges
 
@@ -172,7 +173,7 @@ physical server instances equally.
 
 ## Assignment - II
 
-
++ As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7, a colflict will arrise because if we want to distributed 7 shard replicas of  4 shard (Default configauration as per Task 2) then total no of replicas will be 4x7 = 28 which not divisable by 6(Available servers). The ideal no of distribution value comes near 4.3. So we have takes 4 no of replicas to each server to resolve this conflict.
 
 # Prerequisites
 
