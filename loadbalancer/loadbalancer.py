@@ -65,22 +65,27 @@ queryHandler.hasTable(tabname="shardT",columns=columnsName,dtypes=dtypes,primary
 
 # serverInitializaton = False
 ######################### Difining the another thread to check server status #######################
-def replica_status(replicas):
+# def replica_status(replicas):
+def replica_status():
     # global serverInitializaton
     
     while True:
         ####################Respwn Method 1###############################
-
+        global schema,replicas
         for replica in replicas:
 
-            alive = None
+            # alive = None
             alive = os.system(f"ping -c 1 {replica}")
-            if alive is None:
+            logger.info(f"Livenness of {replica} is {alive}, Available replica {replicas}")
+            if alive :
+                logger.info(f"{replica} is down... Trying to Re-initialize ...")
+                res = os.popen(f"sudo docker rm {replica}")
                 shradinReplica = queryHandler.getShardsinServer(replica)
                 res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
+                # res=os.popen(f"sudo docker restart {replica}").read()
                 time.sleep(20)
 
-                logger.info("Bro I am waiting for server to Re-initilize....... ")
+                logger.info("I am waiting for server to Re-initilize....... ")
                 logger.info(f"Intialized server:{replica}")
                 # shardsinserver = queryHandler.getShardsinServer(server)
                 logger.info(f"shards list inside server : {shradinReplica}")
@@ -101,6 +106,35 @@ def replica_status(replicas):
                 except Exception as e:
                     logger.info(f"The routed {replica} is not yet Initialized, Retrying ....{tries}")
 
+                shardsToCopy = queryHandler.getShardsinServer(replica)
+                for shard in shardsToCopy:
+                    serverToCopyFrom = select_random_elements(queryHandler.whereIsShard(shard),[replica],len(queryHandler.whereIsShard(shard))-1)
+                    copyRES = {}
+                    for oldserver in serverToCopyFrom:
+                        logger.info(f"Starting data migration from {oldserver} to new server {replica}")
+                        copyJSON = {
+                            "shards" : [shard]
+                        }
+                        url = f"http://{oldserver}:5000/copy"
+                        copyRES = requests.get(url,json=copyJSON).json()
+                        # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
+                        logger.info(f"Fetched data from {oldserver}: {copyRES}")
+                        if copyRES["status"] == "success":
+                            break
+                    logger.info(f"Starting Data migration from {oldserver} of {shard} for {replica}")
+                    data = copyRES[shard]
+                    writeJSON ={
+                        "shard": shard,
+                        "curr_idx" : 0,
+                        "data": data
+                    }
+                    logger.info(f"Json for wrtting the data to newly added {replica}:{writeJSON}")
+
+                    url = f"http://{replica}:5000/write"
+                    writeRES = requests.post(url, json=writeJSON).json()
+
+                    logger.info(f"Response from {replica} is : {writeRES}")
+                    logger.info(f"Copied data of {shard} from {oldserver} to {replica}")
                 # if replica not in queryHandler.getServerList():
                 #     #handled: skipped if server is already present(valid for second time init call)
                 #     if replica.find("[") != -1:
@@ -149,9 +183,9 @@ def replica_status(replicas):
         time.sleep(5)
     
 
-################ Calling Server thread ###############
-# server_thread = threading.Thread(target=replica_status,args=(replicas,))
-# server_thread.start()
+############### Calling Server thread ###############
+server_thread = threading.Thread(target=replica_status)
+server_thread.start()
 # server_thread = threading.Thread(target=replica_status,args=(replicas,))
 # server_thread.start()
 
@@ -648,18 +682,26 @@ def remove_servers():
         for shard in danger:
         
             randomServer = random.sample(replicas,SHARD_REPLICAS)
+            logger.info(f"start migrating {shard} to {randomServer}")
             #send config of shard to random server 
             configJSON = {
                 "schema": schema,
-                "shards": shard
+                "shards": [shard]
             }
+            logger.info(f"config JSON - {configJSON}")
             for newLoc in randomServer:
                 url = f"http://{newLoc}:5000/config"
-                res=requests.post(url,json=configJSON)
+                res=requests.post(url,json=configJSON).json()
+                if(res["status"]=="success"):
+                    logger.info(f"configured {shard} in {newLoc}")
+                else:
+                    logger.info(f"FAILURE in configuring {shard} in {newLoc}")
             #copy contents from old server
+            
             copyJSON = {
-                "shards" : shard
+                "shards" : [shard]
             }
+            logger.info(f"copy JSON - {copyJSON}")
             url = f"http://{deletedShards[shard][0]}:5000/copy"
             copyRES = requests.get(url,json=copyJSON).json()
             data = copyRES[shard]            
@@ -671,9 +713,9 @@ def remove_servers():
             }
             for newLoc in randomServer:
                 url = f"http://{newLoc}:5000/write"
-                writeRES = requests.post(url, payload_json = writeJSON).json()
-                logger.info(f"transfere to {newLoc} status -{writeRES}")
-            
+                writeRES = requests.post(url, json = writeJSON).json()
+                logger.info(f"transfered to {newLoc} status -{writeRES}")
+                
             
             for newLoc in randomServer:
                 #update mapT
@@ -683,6 +725,7 @@ def remove_servers():
 
         # kill server containers
         for server in servers_to_remove:
+            # replicas.remove(server)
             os.system(f"sudo docker stop {server} && sudo docker rm {server}")
             logger.info(f"stopped {server}")
         
