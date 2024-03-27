@@ -128,6 +128,9 @@ physical server instances equally.
 
 ### Remove/Stop Loadbalancer/Server
     make down
+    
+### Remove/Stop Loadbalancer/Server & Restart Container
+    make restart
 
 
 
