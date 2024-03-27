@@ -294,80 +294,80 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
 #### Liveness and Correctness :
     def replica_status():
     
-    while True:
-        ####################Respwn Method 1###############################
-        global schema,replicas
-        for replica in replicas:
-
-            # alive = None
-            alive = os.system(f"ping -c 1 {replica}")
-            logger.info(f"Livenness of {replica} is {alive}, Available replica {replicas}")
-            if alive :
-                logger.info(f"{replica} is down... Trying to Re-initialize ...")
-                res = os.popen(f"sudo docker rm {replica}")
-                shradinReplica = queryHandler.getShardsinServer(replica)
-                res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
-                # res=os.popen(f"sudo docker restart {replica}").read()
-                time.sleep(20)
-
-                logger.info("I am waiting for server to Re-initilize....... ")
-                logger.info(f"Intialized server:{replica}")
-                # shardsinserver = queryHandler.getShardsinServer(server)
-                logger.info(f"shards list inside server : {shradinReplica}")
-                serverPayload_json = {
-                    "schema": schema,
-                    "shards": shradinReplica
-                }
-                logger.info(f"Server paylod at config: {serverPayload_json}")
-                print(serverPayload_json)
-                tries = 0
-                print("Calling config for ",replica)
-                logger.info(f"Calling config for {replica}")
-            
-                try:
-                    url = f"http://{replica}:5000/config"
-                    res=requests.post(url,json=serverPayload_json).json()
-                    logger.info(f"Response from {replica} is :{res}")
-                except Exception as e:
-                    logger.info(f"The routed {replica} is not yet Initialized, Retrying ....{tries}")
-
-                shardsToCopy = queryHandler.getShardsinServer(replica)
-                for shard in shardsToCopy:
-                    serverToCopyFrom = select_random_elements(queryHandler.whereIsShard(shard),[replica],len(queryHandler.whereIsShard(shard))-1)
-                    copyRES = {}
-                    for oldserver in serverToCopyFrom:
-                        logger.info(f"Starting data migration from {oldserver} to new server {replica}")
-                        copyJSON = {
-                            "shards" : [shard]
-                        }
-                        url = f"http://{oldserver}:5000/copy"
-                        copyRES = requests.get(url,json=copyJSON).json()
-                        # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
-                        logger.info(f"Fetched data from {oldserver}: {copyRES}")
-                        if copyRES["status"] == "success":
-                            break
-                    logger.info(f"Starting Data migration from {oldserver} of {shard} for {replica}")
-                    data = copyRES[shard]
-                    writeJSON ={
-                        "shard": shard,
-                        "curr_idx" : 0,
-                        "data": data
-                    }
-                    logger.info(f"Json for wrtting the data to newly added {replica}:{writeJSON}")
-
-                    url = f"http://{replica}:5000/write"
-                    writeRES = requests.post(url, json=writeJSON).json()
-
-                    logger.info(f"Response from {replica} is : {writeRES}")
-                    logger.info(f"Copied data of {shard} from {oldserver} to {replica}")
-            ################Remove Unwanted container or respwn previous container automatically #############################
-        extraContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
-        extraContainerOut = extraContainerOut[:len(extraContainerOut)-1]
-        for container in extraContainerOut:
-            if container not in replicas and container=="loadbalancer":
-                os.system(f"sudo docker stop {container} && sudo docker rm {container}")
-        time.sleep(5)
-
+          while True:
+              ####################Respwn Method 1###############################
+              global schema,replicas
+              for replica in replicas:
+      
+                  # alive = None
+                  alive = os.system(f"ping -c 1 {replica}")
+                  logger.info(f"Livenness of {replica} is {alive}, Available replica {replicas}")
+                  if alive :
+                      logger.info(f"{replica} is down... Trying to Re-initialize ...")
+                      res = os.popen(f"sudo docker rm {replica}")
+                      shradinReplica = queryHandler.getShardsinServer(replica)
+                      res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
+                      # res=os.popen(f"sudo docker restart {replica}").read()
+                      time.sleep(20)
+      
+                      logger.info("I am waiting for server to Re-initilize....... ")
+                      logger.info(f"Intialized server:{replica}")
+                      # shardsinserver = queryHandler.getShardsinServer(server)
+                      logger.info(f"shards list inside server : {shradinReplica}")
+                      serverPayload_json = {
+                          "schema": schema,
+                          "shards": shradinReplica
+                      }
+                      logger.info(f"Server paylod at config: {serverPayload_json}")
+                      print(serverPayload_json)
+                      tries = 0
+                      print("Calling config for ",replica)
+                      logger.info(f"Calling config for {replica}")
+                  
+                      try:
+                          url = f"http://{replica}:5000/config"
+                          res=requests.post(url,json=serverPayload_json).json()
+                          logger.info(f"Response from {replica} is :{res}")
+                      except Exception as e:
+                          logger.info(f"The routed {replica} is not yet Initialized, Retrying ....{tries}")
+      
+                      shardsToCopy = queryHandler.getShardsinServer(replica)
+                      for shard in shardsToCopy:
+                          serverToCopyFrom = select_random_elements(queryHandler.whereIsShard(shard),[replica],len(queryHandler.whereIsShard(shard))-1)
+                          copyRES = {}
+                          for oldserver in serverToCopyFrom:
+                              logger.info(f"Starting data migration from {oldserver} to new server {replica}")
+                              copyJSON = {
+                                  "shards" : [shard]
+                              }
+                              url = f"http://{oldserver}:5000/copy"
+                              copyRES = requests.get(url,json=copyJSON).json()
+                              # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
+                              logger.info(f"Fetched data from {oldserver}: {copyRES}")
+                              if copyRES["status"] == "success":
+                                  break
+                          logger.info(f"Starting Data migration from {oldserver} of {shard} for {replica}")
+                          data = copyRES[shard]
+                          writeJSON ={
+                              "shard": shard,
+                              "curr_idx" : 0,
+                              "data": data
+                          }
+                          logger.info(f"Json for wrtting the data to newly added {replica}:{writeJSON}")
+      
+                          url = f"http://{replica}:5000/write"
+                          writeRES = requests.post(url, json=writeJSON).json()
+      
+                          logger.info(f"Response from {replica} is : {writeRES}")
+                          logger.info(f"Copied data of {shard} from {oldserver} to {replica}")
+                  ################Remove Unwanted container or respwn previous container automatically #############################
+              extraContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
+              extraContainerOut = extraContainerOut[:len(extraContainerOut)-1]
+              for container in extraContainerOut:
+                  if container not in replicas and container=="loadbalancer":
+                      os.system(f"sudo docker stop {container} && sudo docker rm {container}")
+              time.sleep(5)
+      
 
 
     ############### Calling Server thread ###############
