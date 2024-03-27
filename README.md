@@ -259,6 +259,7 @@ Test results are as follows:
 </p>
 
 ## Assignment - II
+To analyze the performance of the developed distributed database. We have designed following testing enviroment.
 ### Analysis - I
 
 The read and write speed for 10000 writes and 10000 reads in the default configuration given in task 2.
