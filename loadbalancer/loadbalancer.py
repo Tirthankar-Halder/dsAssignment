@@ -65,17 +65,18 @@ queryHandler.hasTable(tabname="shardT",columns=columnsName,dtypes=dtypes,primary
 
 # serverInitializaton = False
 ######################### Difining the another thread to check server status #######################
-def replica_status(replicas):
+# def replica_status(replicas):
+def replica_status():
     # global serverInitializaton
     
     while True:
         ####################Respwn Method 1###############################
-        global schema
+        global schema,replicas
         for replica in replicas:
 
             # alive = None
             alive = os.system(f"ping -c 1 {replica}")
-            logger.info(f"Livenness of {replica} is {alive}")
+            logger.info(f"Livenness of {replica} is {alive}, Available replica {replicas}")
             if alive :
                 logger.info(f"{replica} is down... Trying to Re-initialize ...")
                 res = os.popen(f"sudo docker rm {replica}")
@@ -84,7 +85,7 @@ def replica_status(replicas):
                 # res=os.popen(f"sudo docker restart {replica}").read()
                 time.sleep(20)
 
-                logger.info("Bro I am waiting for server to Re-initilize....... ")
+                logger.info("I am waiting for server to Re-initilize....... ")
                 logger.info(f"Intialized server:{replica}")
                 # shardsinserver = queryHandler.getShardsinServer(server)
                 logger.info(f"shards list inside server : {shradinReplica}")
@@ -105,6 +106,35 @@ def replica_status(replicas):
                 except Exception as e:
                     logger.info(f"The routed {replica} is not yet Initialized, Retrying ....{tries}")
 
+                shardsToCopy = queryHandler.getShardsinServer(replica)
+                for shard in shardsToCopy:
+                    serverToCopyFrom = select_random_elements(queryHandler.whereIsShard(shard),[replica],len(queryHandler.whereIsShard(shard))-1)
+                    copyRES = {}
+                    for oldserver in serverToCopyFrom:
+                        logger.info(f"Starting data migration from {oldserver} to new server {replica}")
+                        copyJSON = {
+                            "shards" : [shard]
+                        }
+                        url = f"http://{oldserver}:5000/copy"
+                        copyRES = requests.get(url,json=copyJSON).json()
+                        # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
+                        logger.info(f"Fetched data from {oldserver}: {copyRES}")
+                        if copyRES["status"] == "success":
+                            break
+                    logger.info(f"Starting Data migration from {oldserver} of {shard} for {replica}")
+                    data = copyRES[shard]
+                    writeJSON ={
+                        "shard": shard,
+                        "curr_idx" : 0,
+                        "data": data
+                    }
+                    logger.info(f"Json for wrtting the data to newly added {replica}:{writeJSON}")
+
+                    url = f"http://{replica}:5000/write"
+                    writeRES = requests.post(url, json=writeJSON).json()
+
+                    logger.info(f"Response from {replica} is : {writeRES}")
+                    logger.info(f"Copied data of {shard} from {oldserver} to {replica}")
                 # if replica not in queryHandler.getServerList():
                 #     #handled: skipped if server is already present(valid for second time init call)
                 #     if replica.find("[") != -1:
@@ -153,11 +183,11 @@ def replica_status(replicas):
         time.sleep(5)
     
 
-################ Calling Server thread ###############
+############### Calling Server thread ###############
+server_thread = threading.Thread(target=replica_status)
+server_thread.start()
 # server_thread = threading.Thread(target=replica_status,args=(replicas,))
 # server_thread.start()
-server_thread = threading.Thread(target=replica_status,args=(replicas,))
-server_thread.start()
 
 
 

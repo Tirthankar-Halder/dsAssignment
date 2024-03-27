@@ -147,10 +147,42 @@ Test results are as follows:
 </p>
 
 ## Assignment - II
+<p align="center">
+      <img src="results/Assign2_A1_Write.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A1_Read.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A2_Write.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A2_Read.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A3_Write.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A3_Read.jpg" width="50%"/>
+</p>
 
 # Edge-Cases
 ## Assignment - II
 
+### Server
+
++ <strong> /config: </strong> Create tables of the specified shard name in ShardDB database of respective server if they do not already exist. Sanity checks to ensure correct format of payload is received.
++ <strong> /copy: </strong> Sanity checks to ensure correct format of payload is received. Return error if any one of the shardsis absent in the server. Return failure if all shards are empty in the server in which case there is no data to return 
++ <strong> /read: </strong> Sanity checks to ensure correct format of payload is received. Sanity check to ensure lower bound given is less than the given upper bound.
++ <strong> /write: </strong> Sanity checks to ensure correct format of payload is received. Student Id is used a primary key in the database to garantee that Id is unique field.
++ <strong> /update: </strong> Sanity checks to ensure correct format of payload is received. Added check to make sure that the entry to be updated exists or not.
++ <strong> /delete: </strong> Sanity checks to ensure correct format of payload is received. Added check to handle case of deleting a non existant entry.
+
+### Loadbalancer
+
++ <strong> /add: </strong> Handled the case of adding servers with pre existing shards in which case data in these shards is copied from other servers.
+
++<strong> /rm: </strong> Handled case where down scaling servers may lead to 
 # Contact Me
 
 This is Assignment 1 & 2 of CS60002: Distributed Systems course in IIT Kharagpur, taught by [Dr. Sandip Chakraborty](https://cse.iitkgp.ac.in/~sandipc/).
