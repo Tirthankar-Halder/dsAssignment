@@ -20,17 +20,15 @@ services:
 
   
 
-  # server:
-  #   build: ./server
-  #   image: server
-  #   container_name: server
-  #   networks:
-  #     network1:
-  #       aliases: 
-  #         - server
-  #   # #environment:
-    #   PERSIST : ${PERSISTENCE_MODE}
-    #   SID : server0
+  shardManager:
+    build: ./shardManager
+    image: shardManager
+    container_name: shardManager
+    networks:
+      network1:
+        aliases: 
+          - shardManager
+
 
 networks:
   network1:
