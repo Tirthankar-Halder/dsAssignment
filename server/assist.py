@@ -1,7 +1,13 @@
-import os
 import numpy as np
 import pandas as pd
 import mysql.connector
+import os
+import json
+import shutil
+import tempfile
+import requests
+
+
 # import logging
 # from multiprocessing.dummy import Pool
 
@@ -12,52 +18,29 @@ import mysql.connector
 # loggerQuery.setLevel(logging.DEBUG)
 
 
-# class DataHandler:
-#     def __init__(self,columns=None,dtypes=None,is_SQL=False,SQL_handle=None,table_name=None):
-#         self.columns=columns
-#         self.dtypes=dtypes
-#         self.is_SQL=is_SQL
-#         self.SQL_handle=SQL_handle
-#         self._setup(table_name)
+class WriteAheadLog:
+    def __init__(self, log_dir):
+        self.log_dir = log_dir
+        os.makedirs(log_dir, exist_ok=True)
+        self.log_file = os.path.join(log_dir, "wal.log")
+        self.temp_log_file = os.path.join(log_dir, "wal_temp.log")
 
-#     def _setup(self,table_name):
-#         if not self.is_SQL:
-#             self.table=pd.DataFrame(columns=self.columns)
-#         else:
-#             self.table_name=self.SQL_handle.jobrunner.apply(self.SQL_handle.hasTable,(table_name,self.columns,self.dtypes))
-    
-#     @property
-#     def Count(self):
-#         if not self.is_SQL:
-#             return self.table.shape[0]
-#         else:
-#             return self.SQL_handle.jobrunner.apply(self.SQL_handle.Count,(self.table_name,))
+    def write(self, data):
+        with open(self.temp_log_file, 'a') as f:
+            f.write(json.dumps(data) + '\n')
 
-#     def Insert(self,row):
-#         if not self.is_SQL:
-#             id=self.table.shape[0]
-#             self.table.loc[self.table.shape[0]]=row
-#         else:
-#             id=self.SQL_handle.jobrunner.apply(self.SQL_handle.Insert,(self.table_name,row))
-#         return id
+    def flush(self):
+        shutil.move(self.temp_log_file, self.log_file)
 
-#     def Update(self,idx,col,val):
-#         if not self.is_SQL:
-#             self.table.loc[idx,col]=val
-#         else:
-#             self.SQL_handle.jobrunner.apply(self.SQL_handle.setVal,(self.table_name,idx,col,val))
+    def read(self):
+        with open(self.log_file, 'r') as f:
+            for line in f:
+                yield json.loads(line)
 
-#     def GetAT(self,idx,col):
-#         if not self.is_SQL:
-#             return self.table.loc[idx,col]
-#         else:
-#             return self.SQL_handle.jobrunner.apply(self.SQL_handle.getVal,(self.table_name,idx,col))
+    def clear(self):
+        os.remove(self.log_file)
 
-#     def IncrementBy(self,idx,col,by):
-#         if not self.is_SQL:
-#             self.table.loc[idx,col]+=by
-#         else:
-#             self.SQL_handle.jobrunner.apply(self.SQL_handle.IncrementBy,(self.table_name,idx,col,by))
+
 
 
 class SQLHandler:
