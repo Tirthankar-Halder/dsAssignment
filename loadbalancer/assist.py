@@ -118,26 +118,34 @@ class SQLHandler:
         print(res)
         if dbname in [r[0] for r in res]:
             self.nrq(f"DROP DATABASE {dbname}")
+    def changePrimary(self,serverID,shardID):
+        self.nrq(f"UPDATE mapT SET PrimaryServer = 1 WHERE Server_id = '{serverID}' AND Shard_id = '{shardID}'; ")
 
+    def getPrimary(self,shardID)    :
+        row = self.query(f"SELECT * from mapT WHERE Shard_id = '{shardID}' AND PrimaryServer = 1;")
+        return row[0][0]
+    
     def hasTable(self,tabname=None,columns=None,dtypes=None,primaryKeyFlag=True):
         res=self.query("SHOW TABLES")
         print(res)
         if primaryKeyFlag:
             if tabname not in [r[0] for r in res]:
-                dmap={'Number':'INT','String':'VARCHAR(32)'}
+                dmap={'Number':'INT','String':'VARCHAR(32)','Boolean':'BOOLEAN DEFAULT 0'}
+                # print(dmap)
                 col_config=''
                 flag =True
                 for c,d in zip(columns,dtypes):
+                    # print(c,d)
                     if flag:
                         col_config+=f" {c} {dmap[d]} PRIMARY KEY NOT NULL"
                         flag = False
                     else: 
                         col_config+=f", {c} {dmap[d]}"
-                print(f"CREATE TABLE {tabname} ({col_config});")
-                self.nrq(f"CREATE TABLE {tabname} ({col_config});")
+                print(f"CREATE TABLE {tabname} ({col_config} );")
+                self.nrq(f"CREATE TABLE {tabname} ( {col_config} );")
         else:
             if tabname not in [r[0] for r in res]:
-                dmap={'Number':'INT','String':'VARCHAR(32)'}
+                dmap={'Number':'INT','String':'VARCHAR(32)','Boolean':'BOOLEAN DEFAULT 0'}
                 col_config=''
                 flag =True
                 for c,d in zip(columns,dtypes):
@@ -146,8 +154,8 @@ class SQLHandler:
                         flag = False
                     else: 
                         col_config+=f", {c} {dmap[d]}"
-                print(f"CREATE TABLE {tabname} ({col_config});")
-                self.nrq(f"CREATE TABLE {tabname} ({col_config});")
+                print(f"CREATE TABLE {tabname} ({col_config} );")
+                self.nrq(f"CREATE TABLE {tabname} ( {col_config} );")
         return tabname
 
     def fetchTable(self):
@@ -299,7 +307,7 @@ class SQLHandler:
             res = self.query(f"SELECT Stud_id_low, Shard_id, Shard_size FROM shardT")
             messgae =[]
             for row in res:
-                messgae.append({"Stud_id_low":row[0],"Shard_id":row[1],"Shard_size":row[2]})
+                messgae.append({"Stud_id_low":row[0],"Shard_id":row[1],"Shard_size":row[2],"primary_server":{self.getPrimary(row[1])}})
             # print(res)
             return messgae,1
         except Exception as e:
