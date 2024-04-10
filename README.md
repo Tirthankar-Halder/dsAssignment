@@ -52,12 +52,6 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 ├── assets
 │   ├── assign_1.png
 │   └── assign_2.png
-├── Assignment_2_server
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── server_2.py
-│   ├── studTable.db
-│   └── table1.py
 ├── async.py
 ├── automateRequest.ipynb
 ├── docker-compose.yml
