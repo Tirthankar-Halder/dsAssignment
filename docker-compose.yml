@@ -20,14 +20,14 @@ services:
 
   
 
-  shardManager:
-    build: ./shardManager
-    image: shardManager
-    container_name: shardManager
+  shardmanager:
+    build: ./shardmanager
+    image: shardmanager
+    container_name: shardmanager
     networks:
       network1:
         aliases: 
-          - shardManager
+          - shardmanager
 
 
 networks:
