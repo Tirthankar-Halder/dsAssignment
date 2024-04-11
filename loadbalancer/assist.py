@@ -121,8 +121,10 @@ class SQLHandler:
     def changePrimary(self,serverID,shardID):
         self.nrq(f"UPDATE mapT SET PrimaryServer = 1 WHERE Server_id = '{serverID}' AND Shard_id = '{shardID}'; ")
 
-    def getPrimary(self,shardID)    :
-        row = self.query(f"SELECT * from mapT WHERE Shard_id = '{shardID}' AND PrimaryServer = 1;")
+    def getPrimary(self,shardID):
+        print(shardID)
+        row = self.query(f"SELECT Server_id from mapT WHERE Shard_id = '{shardID}' AND PrimaryServer = 1;")
+        print(row)
         return row[0][0]
     
     def hasTable(self,tabname=None,columns=None,dtypes=None,primaryKeyFlag=True):
@@ -210,7 +212,7 @@ class SQLHandler:
         for data in row:
             try:
                 # print(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])},0)")
-                self.nrq(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])},0)")
+                self.nrq(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])})")
                 c+=1
             except Exception as e:
                 error+= str(e)
