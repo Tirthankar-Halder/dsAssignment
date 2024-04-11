@@ -70,7 +70,7 @@ class SQLHandler:
         if dbname in [r[0] for r in res]:
             self.nrq(f"DROP DATABASE {dbname}")
     def changePrimary(self,serverID,shardID):
-        self.nrq(f"UPDATE mapT SET PrimaryServer = 1 WHERE Server_id = '{serverID}' AND Shard_id = '{shardID}'; ")
+        self.nrq(f"UPDATE mapT SET PrimaryServer = CASE WHEN Server_id = '{serverID}' THEN 1 ELSE 0 END WHERE Shard_id = '{shardID}'; ")
 
     def getPrimary(self,shardID):
         print(shardID)
