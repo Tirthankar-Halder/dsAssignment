@@ -386,8 +386,8 @@ def initialize_database():
             id = shard['Shard_id']
             shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
             serverContainer = queryHandler.whereIsShard(id)
-            print(f"servers for a shard {shard}: {serverContainer}")
-            logger.info(f"servers for a shard:{serverContainer}")
+            # print(f"servers for a shard {shard}: {serverContainer}")
+            logger.info(f"servers for a shard {shard}:{serverContainer}")
             for server in serverContainer:
                 shardServerMap[id].add_server_container(server)
         print(shardServerMap)
@@ -835,29 +835,41 @@ def write_data():
             logger.info("Mutex lock accquired")
             try:
                 # Get all servers having replicas of the shard
+                primaryServer = queryHandler.getPrimary(shardID=shard_id)
                 serverList = queryHandler.whereIsShard(shardID=shard_id)
+                serverList.remove(primaryServer)
+                logger.info(f"{primaryServer} is Primary for {shard_id}.")
+                logger.info(f"Slave list  is {serverList} for {shard_id}.")
+                
                 # Write entries in all servers of the shard
-                for server in serverList:
+                # for server in serverList:
                 # write_successful = write_entries_to_servers(servers, entry)
-                    currID,___ = queryHandler.getCurrIdx(shardName=shard_id)
-                    serverPayload_json ={
-                    "shard" :f"{shard_id}",
-                    "curr_idx" : currID,
-                    "data" : [entry]
+                currID,___ = queryHandler.getCurrIdx(shardName=shard_id)
+                
+                serverPayload_json ={
+                "shard" :shard_id,
+                "curr_idx" : currID,
+                "data" : [entry],
+                "slaves": serverList
+                }
+                logger.info(f"payload - {serverPayload_json}")
+                logger.info(f"{shard_id} is available on {primaryServer}")
+                try:
+                    url = f"http://{primaryServer}:5000/write"
+                    res=requests.post(url,json=serverPayload_json).json()
+                    logger.info(f"Response from {primaryServer} is :{res}")
+                    success_count+=1
+                except Exception as e:
+                    logger.info(f"The Data entrie is not added with stud_id {stud_id} in shard_id {shard_id} on {primaryServer}")
+                    error_response = {
+                        "message": f"Error during writing data: {str(e)}",
+                        "status": "error"
                     }
-                    logger.info(f"payload - {serverPayload_json}")
-                    logger.info(f"{shard_id} is available on {server}")
-                    try:
-                        url = f"http://{server}:5000/write"
-                        res=requests.post(url,json=serverPayload_json).json()
-                        logger.info(f"Response from {server} is :{res}")
-                        success_count+=1
-                    except Exception as e:
-                        logger.info(f"The Data entrie is not added with stud_id {stud_id} in shard_id {shard_id} on {server}")
+                    return jsonify(error_response), 500
 
-                    #update currIDX
-                    queryHandler.updateCurrIdx(currID+1,shardName=shard_id)
-                    logger.info("updated current index")
+                #update currIDX
+                queryHandler.updateCurrIdx(currID+1,shardName=shard_id)
+                logger.info("updated current index")
             finally:
                 # Release the mutex lock for the shard
                 mutex_lock.release()

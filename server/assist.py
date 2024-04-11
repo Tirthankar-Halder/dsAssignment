@@ -7,42 +7,6 @@ import shutil
 import tempfile
 import requests
 
-
-# import logging
-# from multiprocessing.dummy import Pool
-
-
-# logging.basicConfig(filename="serverQuery.log",format='%(asctime)s %(message)s',filemode = 'w')
-
-# loggerQuery = logging.getLogger()
-# loggerQuery.setLevel(logging.DEBUG)
-
-
-class WriteAheadLog:
-    def __init__(self, log_dir):
-        self.log_dir = log_dir
-        os.makedirs(log_dir, exist_ok=True)
-        self.log_file = os.path.join(log_dir, "wal.log")
-        self.temp_log_file = os.path.join(log_dir, "wal_temp.log")
-
-    def write(self, data):
-        with open(self.temp_log_file, 'a') as f:
-            f.write(json.dumps(data) + '\n')
-
-    def flush(self):
-        shutil.move(self.temp_log_file, self.log_file)
-
-    def read(self):
-        with open(self.log_file, 'r') as f:
-            for line in f:
-                yield json.loads(line)
-
-    def clear(self):
-        os.remove(self.log_file)
-
-
-
-
 class SQLHandler:
     def __init__(self,host='localhost',user='root',password='password',db='shardDB'):
         self.host=host

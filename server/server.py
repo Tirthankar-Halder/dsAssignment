@@ -3,32 +3,13 @@ import sqlite3
 import mysql.connector
 import os
 from assist import *
+from wal import *
 import logging
-# logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('Server:')
-    
-
-# logging.basicConfig(filename="serverLog.log",format='%(asctime)s %(message)s',filemode = 'w')
-
-# logger = logging.getLogger()
-# logger.setLevel(logging.DEBUG)
 
 app = Flask(__name__,template_folder='.')
- 
-# connected=False
-# while not connected:
-#     try:
-#         mydb = mysql.connector.connect(host="localhost",user="root",password="abc")
-#         connected=True
-#     except Exception:
-#         pass
-# print("Connection Established...")
-
-# logger.info("Initializing Database")
 queryHandler = SQLHandler()
-# logger.info("Initialized Database and Databse Connected")
-
-
+walList = {}
 @app.route('/')
 def index():
     return "Welcome to HELLO WORLD"
@@ -65,6 +46,7 @@ def dropDB():
 shard_configurations = {}
 @app.route('/config', methods=['POST'])
 def configure_shards():
+    global walList
     server_id = os.getenv('SERVER_ID', 'Unknown')
     try:
         payload_json = request.get_json()
@@ -79,10 +61,14 @@ def configure_shards():
         for shard in shardsName:
             tabName = queryHandler.hasTable(tabname=shard,columns=columnsName,dtypes=dtypes)
             shard_configurations[shard] = f"{server_id} : {shard} configured"
+            logger.info(f"WAL is created for {shard}")
+            walList[shard] = WriteAheadLog(shard)
+        
         response_json = {
             "message": ", ".join(shard_configurations.values()),
             "status" : "success"
         }
+        
         return jsonify(response_json), 200
 
     except Exception as e:
@@ -166,22 +152,73 @@ def write_shard_data():
     shardName = payload_json.get('shard')
     currID = payload_json.get('curr_idx')
     newData = payload_json.get('data')
+    slaves = payload_json.get('slaves')
 
     # Validate payload structure
-    if 'shard' not in payload_json or 'curr_idx' not in payload_json or 'data' not in payload_json:
+    if 'shard' not in payload_json or 'data' not in payload_json:
         return jsonify({"error": "Invalid payload structure"}), 400
     
-    error = queryHandler.Insert(table_name=shardName,row=newData)
-    logger.info("Data inserted")
-    if error:
-        return jsonify({"error": str(error)}),404
-    shard_index[shardName] = currID + len(newData)
+    walList[shardName].append(request.endpoint,payload_json)
+    sucessCount =0
+    if len(slaves):
+        sucessCount =0
+        for slave in slaves:
 
-    response_json = {
-        "message": "Data entries added",
-        "current_idx": shard_index[shardName],
-        "status": "success"
-    }
+            secondaryServerPayload = {
+                "shard": shardName,
+                "curr_idx":currID,
+                "data" : newData,
+                "slaves":[]
+
+            }
+            url = f"http://{slave}:5000/write"
+            res=requests.post(url,json=secondaryServerPayload).json()
+            if res['status']=="success": sucessCount+=1
+    
+    # error = queryHandler.Insert(table_name=shardName,row=newData)
+    # logger.info("Data inserted")
+    # if error:
+    #     return jsonify({"error": str(error)}),404
+    # shard_index[shardName] = currID + len(newData)
+    
+
+    if sucessCount>len(slaves)/2 :
+        
+        error = queryHandler.Insert(table_name=shardName,row=newData)
+        logger.info("Data inserted")
+        if error:
+            return jsonify({"error": str(error)}),404
+        shard_index[shardName] = currID + len(newData)
+        walList[shardName].commit(request.endpoint,payload_json)
+        response_json = {
+            "message": f"Data entries added in {sucessCount} no of server Failed in {len(slaves)-sucessCount}",
+            "current_idx": shard_index[shardName],
+            "status": "success"
+        }
+    elif len(slaves)==0:
+        
+        error = queryHandler.Insert(table_name=shardName,row=newData)
+        logger.info("Data inserted")
+        if error:
+            return jsonify({"error": str(error)}),404
+        shard_index[shardName] = currID + len(newData)
+        walList[shardName].commit(request.endpoint,payload_json)
+        response_json = {
+            "message": "Data entries added",
+            "current_idx": shard_index[shardName],
+            "status": "success"
+        }
+    else:
+        response_json = {
+            "message": "Data entries not added",
+            "current_idx": shard_index[shardName],
+            "status": "failure"
+        }
+
+    #WAL Handling 
+    
+
+
     return jsonify(response_json), 200
 
 @app.route('/update', methods=['PUT'])

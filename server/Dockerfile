@@ -15,7 +15,14 @@ RUN chmod +x /app/custom-entry.sh
 
 ENV SERVER_ID=""
 
-ENV MYSQL_ROOT_PASSWORD="password"
+ENV USER=theuser
+RUN adduser --home /home/$USER --disabled-password --gecos GECOS $USER \
+  && chsh -s /bin/zsh $USER
+RUN chown -R $USER /app
 
+USER $USER
+ENV HOME=/home/$USER
+ENV MYSQL_ROOT_PASSWORD="password"
+# EXPOSE 5000
 ENTRYPOINT ["/app/custom-entry.sh"]
 CMD ["mysqld"]
