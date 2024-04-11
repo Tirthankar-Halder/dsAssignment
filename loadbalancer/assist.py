@@ -309,7 +309,7 @@ class SQLHandler:
             res = self.query(f"SELECT Stud_id_low, Shard_id, Shard_size FROM shardT")
             messgae =[]
             for row in res:
-                messgae.append({"Stud_id_low":row[0],"Shard_id":row[1],"Shard_size":row[2],"primary_server":{self.getPrimary(row[1])}})
+                messgae.append({"Stud_id_low":row[0],"Shard_id":row[1],"Shard_size":row[2],"primary_server":self.getPrimary(row[1])})
             # print(res)
             return messgae,1
         except Exception as e:

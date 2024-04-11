@@ -461,9 +461,10 @@ def get_database_status():
             "N": len(res),
             "schema": schema,
             "shards": shard,
-            "servers": server,
-
+            "servers": server
         }
+        logger.info("Response Json:",res,schema,shard,server)
+        logger.info("Response Json:",response_json)
         if len(res):
             return jsonify(response_json), 200
         else:
