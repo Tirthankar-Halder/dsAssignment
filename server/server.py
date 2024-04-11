@@ -227,27 +227,92 @@ def update_shard_data():
     shardName = payload_json.get('shard')
     studID = payload_json.get('Stud_id')
     updateData = payload_json.get('data')
+    slaves = payload_json.get('slaves')
 
     # Validate payload structure
     if 'shard' not in payload_json or 'Stud_id' not in payload_json or 'data' not in payload_json:
         return jsonify({"error": "Invalid payload structure"}), 400
-    
-    count,flag = queryHandler.checkIfIdExists(shardName,studID)
-    if flag == 0:
-        return jsonify({"error": str(count)}), 404
-    elif count == 0 :
-        return jsonify({"error": f"Data entry for Stud_id:{studID} not found"})
-    
 
-    error = queryHandler.Update(shardN=shardName,updatedData=updateData,studID=studID)
-    if error:
-        return jsonify({"error": str(error)}), 404
+    walList[shardName].append(request.endpoint,payload_json)
+    sucessCount =0
+    if len(slaves):
+        # sucessCount =0
+        for slave in slaves:
+
+            secondaryServerPayload = {
+                "shard": shardName,
+                "Stud_id":studID,
+                "data" : updateData,
+                "slaves":[]
+
+            }
+            url = f"http://{slave}:5000/update"
+            res=requests.put(url,json=secondaryServerPayload).json()
+            if res['status']=="success": sucessCount+=1
+            
+    if sucessCount>len(slaves)/2 :
+        count,flag = queryHandler.checkIfIdExists(shardName,studID)
+        if flag == 0:
+            return jsonify({"error": str(count)}), 404
+        elif count == 0 :
+            return jsonify({"error": f"Data entry for Stud_id:{studID} not found"})
+        
+
+        error = queryHandler.Update(shardN=shardName,updatedData=updateData,studID=studID)
+        walList[shardName].commit(request.endpoint,payload_json)
+        if error:
+            return jsonify({"error": str(error)}), 404
+        else:
+            response_json = {
+                "message": f"Data entry for Stud_id:{studID} updated in {sucessCount} no of server, Failed in {len(slaves)-sucessCount}",
+                "successCount":sucessCount,
+                "FailedServer":len(slaves)-sucessCount,
+                "status": "success"
+            }
+    elif len(slaves)==0:
+        
+        count,flag = queryHandler.checkIfIdExists(shardName,studID)
+        if flag == 0:
+            return jsonify({"error": str(count)}), 404
+        elif count == 0 :
+            return jsonify({"error": f"Data entry for Stud_id:{studID} not found"})
+        
+
+        error = queryHandler.Update(shardN=shardName,updatedData=updateData,studID=studID)
+        walList[shardName].commit(request.endpoint,payload_json)
+        if error:
+            return jsonify({"error": str(error)}), 404
+        else:
+            response_json = {
+                "message": f"Data entry for Stud_id:{studID} updated",
+                "status": "success"
+            }
     else:
         response_json = {
-            "message": f"Data entry for Stud_id:{studID} updated",
-            "status": "success"
+            "message": "Data is not updated",
+            "status": "failure"
         }
-        return jsonify(response_json), 200
+        
+    # count,flag = queryHandler.checkIfIdExists(shardName,studID)
+    # if flag == 0:
+    #     return jsonify({"error": str(count)}), 404
+    # elif count == 0 :
+    #     return jsonify({"error": f"Data entry for Stud_id:{studID} not found"})
+    
+
+    # error = queryHandler.Update(shardN=shardName,updatedData=updateData,studID=studID)
+    # if error:
+    #     return jsonify({"error": str(error)}), 404
+    # else:
+    #     response_json = {
+    #         "message": f"Data entry for Stud_id:{studID} updated",
+    #         "status": "success"
+    #     }
+    #     return jsonify(response_json), 200
+    
+
+    return jsonify(response_json), 200
+
 shard_data = {}
 
 @app.route('/del', methods=['DELETE'])
@@ -255,6 +320,7 @@ def delete_data_entry():
     payload_json = request.get_json()
     shardName = payload_json.get('shard')
     studID = payload_json.get('Stud_id')
+    slaves = payload_json.get('slaves')
 
     # Validate payload structure
     if 'shard' not in payload_json or 'Stud_id' not in payload_json:
@@ -266,18 +332,70 @@ def delete_data_entry():
     elif count == 0 :
         return jsonify({"error": f"Data entry for Stud_id:{studID} not found"})
     
-    error = queryHandler.Delete(shardName,studID)
-    if error:
+    # update WAL 
+    walList[shardName].append(request.endpoint,payload_json)
+    #send delete requests to secondary
+    sucessCount =0
+    if len(slaves):
+        for slave in slaves:
+
+            secondaryServerPayload = {
+                "shard": shardName,
+                "Stud_id": studID,
+                "slaves":[]
+            }
+
+            url = f"http://{slave}:5000/del"
+            res=requests.delete(url,json=secondaryServerPayload).json()
+            if res['status']=="success": sucessCount+=1
+    
+    if sucessCount>len(slaves)/2 :
+        
+        error = queryHandler.Delete(shardName,studID)
+        if error:
+            response_json = {
+                "message": f"Data entry with Stud_id:{studID} is not removed -",
+                "error" : error,
+                "status": "failure"
+            }
+            return jsonify(response_json),404
+        
+        # commit delete changes to wal
+        walList[shardName].commit(request.endpoint,payload_json)
+        
         response_json = {
-            "message": f"Data entry with Stud_id:{studID} is not removed -",
-            "error" : error,
-            "status": "failure"
+            "message": f"Data entry with Stud_id:{studID} removed from Primary",
+            "successCount":sucessCount,
+            "FailedServer":len(slaves)-sucessCount,
+            "status": "success"
+        }
+    elif len(slaves)==0:
+        
+        error = queryHandler.Delete(shardName,studID)
+        if error:
+            response_json = {
+                "message": f"Data entry with Stud_id:{studID} is not removed -",
+                "error" : error,
+                "status": "failure"
+            }
+            return jsonify(response_json),404
+        
+        # commit delete changes to wal
+        walList[shardName].commit(request.endpoint,payload_json)
+        
+        response_json = {
+            "message": f"Data entry with Stud_id:{studID} removed from Secondary",
+            "status": "success"
         }
     else:
         response_json = {
-            "message": f"Data entry with Stud_id:{studID} removed",
-            "status": "success"
+            "message": f"Data entry with Stud_id:{studID} is not removed -",
+            "error" : "Majority not reached",
+            "status": "failure"
         }
+        return jsonify(response_json),404
+
+    
     return jsonify(response_json), 200
 
 if  __name__ == '__main__':

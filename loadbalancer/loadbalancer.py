@@ -485,6 +485,8 @@ def add_servers():
         new_shards = payload_json["new_shards"]
         servers = payload_json["servers"]
 
+        
+
         # Simple sanity checks on the request payload
         if n > len(servers):
             error_response = {
@@ -535,6 +537,14 @@ def add_servers():
         logger.info("Inserted Server to mapT tables for newly added servers")
         #add new server details
 
+        #Select Primary Server through Random func
+        for shard in new_shards:
+            id = shard['Shard_id']
+            serverContainer = queryHandler.whereIsShard(id)
+            pServer = random.choice(serverContainer)
+            queryHandler.changePrimary(pServer,id)
+            logger.info(f"Primary server {pServer} for shard {id}")
+
         for shard in new_shards:
             shard_id = shard['Shard_id']
             shardServerMap[shard_id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
@@ -580,23 +590,26 @@ def add_servers():
                     logger.info(f"Shard : {shard} in Serverforshard: {serverForShard}")
                     # currID,___ = queryHandler.getCurrIdx(shardName=shard)
                     copyRES = {}
-                    for oldserver in serverForShard[shard]:
-                        logger.info(f"Starting data migration from {oldserver} to new server {server}")
-                        copyJSON = {
-                            "shards" : [shard]
-                        }
-                        url = f"http://{oldserver}:5000/copy"
-                        copyRES = requests.get(url,json=copyJSON).json()
-                        # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
-                        logger.info(f"Fetched data from {oldserver}: {copyRES}")
-                        if copyRES["status"] == "success":
-                            break
-                    logger.info(f"Starting Data migration from {oldserver} of {shard} for {server}")
+                    # for oldserver in serverForShard[shard]:
+                    primaryServer = queryHandler.getPrimary(shard)
+                    logger.info(f"Starting data Copying from {primaryServer} to new server {server}")
+                    copyJSON = {
+                        "shards" : [shard]
+                    }
+                    url = f"http://{primaryServer}:5000/copy"
+                    copyRES = requests.get(url,json=copyJSON).json()
+                    # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
+                    logger.info(f"Fetched data from {primaryServer}: {copyRES}")
+                    if copyRES["status"] != "success":
+                        return jsonify({"error":f"Could not fetch data from primary server {primaryServer} for shard- {shard}"})
+                    logger.info(f"Starting Data Writing from {primaryServer} of {shard} for {server}")
                     data = copyRES[shard]
+
                     writeJSON ={
                         "shard": shard,
                         "curr_idx" : 0,
-                        "data": data
+                        "data": data,
+                        "slaves":[]
                     }
                     logger.info(f"Json for wrtting the data to newly added {server}:{writeJSON}")
 
@@ -604,7 +617,7 @@ def add_servers():
                     writeRES = requests.post(url, json=writeJSON).json()
 
                     logger.info(f"Response from {server} is : {writeRES}")
-                    logger.info(f"Copied data of {shard} from {oldserver} to {server}")
+                    logger.info(f"Copied data of {shard} from {primaryServer} to {server}")
                     queryHandler.updateCurrIdx(writeRES["current_idx"],shardName=shard)
                     logger.info("Updated current index in newly added servers")
 
@@ -923,30 +936,37 @@ def update_data():
 
         try:
             shardName = get_shard_id(stud_id)
-            servers = queryHandler.whereIsShard(shardName)
-             # Acquire mutex lock for the shard
+            # Get all servers having replicas of the shard
+            primaryServer = queryHandler.getPrimary(shardID=shardName)
+            serverList = queryHandler.whereIsShard(shardID=shardName)
+            serverList.remove(primaryServer)
+            logger.info(f"{primaryServer} is Primary for {shardName}.")
+            logger.info(f"Slave list  is {serverList} for {shardName}.")             # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shardName]
             mutex_lock.acquire()
             updateShard = 0
             serverPayload_json ={
                     "shard" :shardName,
                     "Stud_id" :stud_id,
-                    "data" : data
+                    "data" : data,
+                    "slaves": serverList
             }
-            for server in servers:
-                
-                try:
-                    url = f"http://{server}:5000/update"
-                    res=requests.put(url,json=serverPayload_json).json()
-                    logger.info(f"Response from {server} is :{res}")
-                    updateShard+=1
-                except Exception as e:
-                    logger.info(f"The stud_id {stud_id} is not updated on {server}")
+            # for server in servers:
+            
+            try:
+                url = f"http://{primaryServer}:5000/update"
+                res=requests.put(url,json=serverPayload_json).json()
+                logger.info(f"Response from {primaryServer} is :{res}")
+                updateShard+=1
+            except Exception as e:
+                logger.info(f"The stud_id {stud_id} is not updated on {primaryServer}")
 
 
-            if updateShard==len(servers):
+            if updateShard:
+                success=res["successCount"]
+                failed = res["FailedServer"]
                 response_data = {
-                    "message": f"Data entry for Stud_id: {stud_id} updated",
+                    "message": f"Data entry for Stud_id: {stud_id} updated in {success}, Failed in {failed}",
                     "status": "success"
                 }
             else:
@@ -955,6 +975,7 @@ def update_data():
                     "status": "failure"
                 }
 
+                return jsonify(response_data), 500
             return jsonify(response_data), 200
 
         finally:
@@ -980,32 +1001,37 @@ def delete_data():
             # Get the shard id for the provided Stud id
             shardName = get_shard_id(stud_id=stud_id)
             logger.info(f"{stud_id} is in {shardName}")
-            servers = queryHandler.whereIsShard(shardName)
-            logger.info(f"{shardName} is in {servers}")
-             # Acquire mutex lock for the shard
+            # call primary server
+            primaryServer = queryHandler.getPrimary(shardID=shardName)
+            serverList = queryHandler.whereIsShard(shardID=shardName)
+            serverList.remove(primaryServer)
+            logger.info(f"{primaryServer} is Primary for {shardName}.")
+            logger.info(f"Slave list  is {serverList} for {shardName}.") 
+            # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shardName]
             mutex_lock.acquire()
             logger.info(f"{shardName} Mutex lock acquired")
-            updateShard = 0
             serverPayload_json ={
-                    "shard" :shardName,
-                    "Stud_id" :stud_id
+                "shard" :shardName,
+                "Stud_id" :stud_id,
+                "slaves": serverList
+                
             }
-            for server in servers:
-                currID,___ = queryHandler.getCurrIdx(shardName=shardName)
-                try:
-                    url = f"http://{server}:5000/del"
-                    res=requests.delete(url,json=serverPayload_json).json()
-                    logger.info(f"Response from {server} is :{res}")
-                    updateShard+=1
-                except Exception as e:
-                    logger.info(f"The stud_id {stud_id} is deleted on {server}")
+            
+            currID,___ = queryHandler.getCurrIdx(shardName=shardName)
+            logger.info(f"payload - {serverPayload_json}")
+            url = f"http://{primaryServer}:5000/del"
+            res=requests.delete(url,json=serverPayload_json).json()
+            logger.info(f"Response from {primaryServer} is :{res}")
+            
+            if res["status"] == "success":
                 #update currIDX
+                success=res["successCount"]
+                failed = res["FailedServer"]
                 queryHandler.updateCurrIdx(currID-1,shardName=shardName)
                 logger.info("updated current index")
-            if updateShard:
                 response_data = {
-                    "message": f"Data entry with Stud_id:{stud_id} removed from all replicas",
+                    "message": f"Data entry with Stud_id:{stud_id} removed in {success}, Failed in {failed}",
                     "status": "success"
                 }
             else:
