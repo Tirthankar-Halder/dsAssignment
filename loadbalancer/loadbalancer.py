@@ -38,8 +38,8 @@ mapT_json = {
                 "dtypes":["String","String","Boolean"]},
 }
 shardT_json = {
-    "schema" : {"columns":["Shard_id","Stud_id_low","Shard_size"],
-                "dtypes":["String","Number","Number"]},
+    "schema" : {"columns":["Shard_id","Stud_id_low","Shard_size","valid_idx"],
+                "dtypes":["String","Number","Number","Number"]},
 }
 
 queryHandler = SQLHandler(db="loadbalancerDB")
@@ -463,8 +463,6 @@ def get_database_status():
             "shards": shard,
             "servers": server
         }
-        logger.info("Response Json:",res,schema,shard,server)
-        logger.info("Response Json:",response_json)
         if len(res):
             return jsonify(response_json), 200
         else:
