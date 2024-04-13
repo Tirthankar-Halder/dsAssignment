@@ -187,8 +187,7 @@ physical server instances equally.
 
 + the "/init" endpoint of the loadbalancer is used once only at the begining or after downscaling the servers to 0.
 
-+ As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7. We have made the no servers as constata<li><strong>Shard Manager</strong><ol><li>Heartbeat Monitoring: Checks server health by periodically calling the /heartbeat endpoint.</li>
-    <li>Primary Shard Selection: Selects a new primary shard when the existing one fails.</li></ol>nt ,according to that we have distribued the shard over the available servers.
++ As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7. We have made the no servers as constatant ,according to that we have distribued the shard over the available servers.
 
 Here we took default configauration as per Task 2:
 ```
@@ -448,7 +447,7 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
 +<strong> /rm: </strong> Handled case where down scaling servers may lead to 
 
 ### shardManager 
-+<strong>/primary_elect</strong> If primary server for a shard is removed then also the shard manager should trigger the primary selection from available servers for that shard.
++<strong>detect_and_update()</strong> If primary server for a shard is removed then also the shard manager should trigger the primary selection from available servers for that shard.
 
 # Contact Me
 
