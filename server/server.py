@@ -398,6 +398,23 @@ def delete_data_entry():
     
     return jsonify(response_json), 200
 
+@app.route('/log', methods=['GET'])
+def log_info():
+    global walList
+    payload_json = request.get_json()
+    shardName = payload_json.get('shard')
+
+    try:
+        response_json = {
+            "length": walList[shardName].readCommit(),
+            "status": "success"
+        }
+    except Exception as e:
+        return jsonify(str(e)),500
+    
+    return jsonify(response_json),200
+    
+
 if  __name__ == '__main__':
     # app.run(debug=True,host='0.0.0.0')
     app.run(host='0.0.0.0',debug=True)

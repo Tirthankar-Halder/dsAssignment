@@ -28,10 +28,13 @@ class WriteAheadLog:
     def flush(self):
         shutil.move(self.temp_log_file, self.log_file)
 
-    def read(self):
+    def readLog(self):
+        with open(self.temp_log_file, 'r') as f:
+            return len(f.readlines())
+
+    def readCommit(self):
         with open(self.log_file, 'r') as f:
-            for line in f:
-                yield json.loads(line)
+            return len(f.readlines())
 
     def clear(self):
         os.remove(self.log_file)
