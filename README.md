@@ -213,7 +213,7 @@ Here we took default configauration as per Task 2:
 + As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7, a colflict will arrise because if we want to distributed 7 shard replicas of  4 shard (Default configauration as per Task 2) then total no of replicas will be 4x7 = 28 which not divisable by 6(Available servers). The ideal no of distribution value comes near 4.3. So we have takes 4 no of replicas to each server to resolve this conflict.
 
 ## Assignment -III
-+ maintaining WAL files shardmanager
++ maintaining WAL files 
 
 # Prerequisites
 
