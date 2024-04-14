@@ -11,11 +11,13 @@ Implimenting a Customizable Load Balancer
 <p align="center">
       <img src="assets/assign_2.png" width="70%"/>
 </p>
+
 ## Assignment - III
 
 <p align="center">
       <img src="assets/assign_3.png" width="70%"/>
 </p>
+
 # Design
 
 This repository implements a loadbalancer system which uses Consistent Hashmaping technnique for the the allocation of servers and client requests simulteniously further it uses the concept of virtual server of better performence. 
