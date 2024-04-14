@@ -14,6 +14,7 @@ import threading
 import time
 from assist import *
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('LoadBalancer:')
     
@@ -678,7 +679,7 @@ def remove_servers():
         replicas = select_random_elements(replicas,servers_to_remove,len(servers) - len(servers_to_remove))
         logger.info(f"after removal - {replicas}")
         
-        # delect from consistant hashmaps shardServerMap
+        # delete from consistant hashmaps shardServerMap
         for server in servers_to_remove:
             for shard in queryHandler.getShardsinServer(server):
                 shardServerMap[shard].remove_server_container(server)
@@ -690,8 +691,10 @@ def remove_servers():
         for server in servers_to_remove:
             for shard in queryHandler.getShardsinServer(server):
                 if shard not in list(deletedShards.keys()):
-                    deletedShards[shard] = []
-                deletedShards[shard].append(server)
+                    deletedShards[shard] = {}
+                    deletedShards[shard]["servers"] = []
+                    deletedShards[shard]["primary"] = queryHandler.getPrimary(shard)
+                deletedShards[shard]["servers"].append(server)
             queryHandler.deleteServer(server)
         afterDel = queryHandler.getShardList()
         logger.info(f"potential danger - {deletedShards}")
@@ -723,15 +726,17 @@ def remove_servers():
             copyJSON = {
                 "shards" : [shard]
             }
-            logger.info(f"copy JSON - {copyJSON}")
-            url = f"http://{deletedShards[shard][0]}:5000/copy"
+            old_primary = deletedShards[shard]["primary"]
+            logger.info(f"copy JSON - {copyJSON} copying from {old_primary}")
+            url = f"http://{old_primary}:5000/copy"
             copyRES = requests.get(url,json=copyJSON).json()
             data = copyRES[shard]            
             #write content to new server
             writeJSON ={
                 "shard": shard,
                 "curr_idx" : 0,
-                "data": data
+                "data": data,
+                "slaves":[]
             }
             for newLoc in randomServer:
                 url = f"http://{newLoc}:5000/write"
@@ -744,6 +749,33 @@ def remove_servers():
                 queryHandler.nrq(f"INSERT INTO mapT (Shard_id, Server_id) VALUES ('{str(shard)}','{str(newLoc)}')")
                 #update consistant hashmap
                 shardServerMap[shard].add_server_container(newLoc)
+            
+        for shard in queryHandler.getShardList():
+            logger.info(f"Running leader election for {shard}")
+            try:
+                old_primary = queryHandler.getPrimary(shard)
+            except Exception as e:
+                old_primary = ""
+            logger.info(f"Old Primary {old_primary} for {shard}")
+            serverList = queryHandler.whereIsShard(shard)
+            logger.info(f"candidates for new primary for {shard} are {serverList}")
+            request_json ={
+                "shard": shard,
+                "servers": serverList,
+                "old_primary": old_primary
+            }
+            try:
+                url = "http://shardmanager:5000/primary_elect"
+                res = requests.get(url, json = request_json).json()
+                if res["status"] == "success":
+                    new_primary = res["primary"]
+                    logger.info(f"New Primary {new_primary} for {shard}")
+                    queryHandler.changePrimary(new_primary,shard)
+                else:
+                    logger.info(f"primary elect endpoint gives wrong return")
+            except Exception as e:
+                logger.info(f"primary elect endpoint not working")
+                return jsonify({"error": str(e)}),500
 
         # kill server containers
         for server in servers_to_remove:

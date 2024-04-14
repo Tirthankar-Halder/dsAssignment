@@ -138,6 +138,53 @@ from assist import *
 # # server_thread.start()
 app = Flask(__name__,template_folder='.')
 
+@app.route('/primary_elect', methods=['GET'])
+def primary_election():
+    payload_json = request.get_json()
+    shardName = payload_json.get('shard')
+    serverList = payload_json.get('servers')
+    old_primary = payload_json.get('old_primary')
+    print("inside shardmanager")
+    if old_primary != "" and old_primary in serverList:
+        try:
+            res = requests.get(f"http://{old_primary}:5000/heartbeat")
+            response_json = {
+                "primary" : old_primary,
+                "status": "success"
+            }
+            return jsonify(response_json),200
+        except Exception as e:
+            pass
+
+    length = 0
+    new_primary = None
+    request_json = {
+        "shard": shardName
+    }
+    for server in serverList:
+        
+        try:
+            url = f"http://{server}:5000/log"
+            response = requests.get(url,json=request_json).json()
+
+            if response["status"] == "success" and response["length"] > length:
+                length = response["length"]
+                new_primary = server
+        except Exception as e:
+            pass
+
+    if new_primary == None:
+        return jsonify({
+            "primary" : new_primary,
+            "status": "failure"
+        }),500
+    
+    return jsonify({
+        "primary" : new_primary,
+        "status": "success"
+    }),200
+    
+
 @app.route('/')
 def index():
     return "Welcome to ShardManager"
