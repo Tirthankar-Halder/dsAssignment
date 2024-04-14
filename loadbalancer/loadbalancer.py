@@ -1,3 +1,4 @@
+import json
 from flask import Flask,request,jsonify,url_for,redirect
 import random
 import requests
@@ -13,6 +14,7 @@ import threading
 import time
 from assist import *
 import logging
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger('LoadBalancer:')
     
@@ -33,8 +35,8 @@ SHARD_REPLICAS = 2
 ################Initialize the Datbase for Loadbalance#############
 schema = {}
 mapT_json = {
-    "schema" : {"columns":["Shard_id","Server_id"],
-                "dtypes":["String","String"]},
+    "schema" : {"columns":["Shard_id","Server_id","PrimaryServer"],
+                "dtypes":["String","String","Boolean"]},
 }
 shardT_json = {
     "schema" : {"columns":["Shard_id","Stud_id_low","Shard_size","valid_idx"],
@@ -66,128 +68,128 @@ queryHandler.hasTable(tabname="shardT",columns=columnsName,dtypes=dtypes,primary
 # serverInitializaton = False
 ######################### Difining the another thread to check server status #######################
 # def replica_status(replicas):
-def replica_status():
-    # global serverInitializaton
+# def replica_status():
+#     # global serverInitializaton
     
-    while True:
-        ####################Respwn Method 1###############################
-        global schema,replicas
-        for replica in replicas:
+#     while True:
+#         ####################Respwn Method 1###############################
+#         global schema,replicas
+#         for replica in replicas:
 
-            # alive = None
-            alive = os.system(f"ping -c 1 {replica}")
-            logger.info(f"Livenness of {replica} is {alive}, Available replica {replicas}")
-            if alive :
-                logger.info(f"{replica} is down... Trying to Re-initialize ...")
-                res = os.popen(f"sudo docker rm {replica}")
-                shradinReplica = queryHandler.getShardsinServer(replica)
-                res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
-                # res=os.popen(f"sudo docker restart {replica}").read()
-                time.sleep(20)
+#             # alive = None
+#             alive = os.system(f"ping -c 1 {replica}")
+#             logger.info(f"Livenness of {replica} is {alive}, Available replica {replicas}")
+#             if alive :
+#                 logger.info(f"{replica} is down... Trying to Re-initialize ...")
+#                 res = os.popen(f"sudo docker rm {replica}")
+#                 shradinReplica = queryHandler.getShardsinServer(replica)
+#                 res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
+#                 # res=os.popen(f"sudo docker restart {replica}").read()
+#                 time.sleep(20)
 
-                logger.info("I am waiting for server to Re-initilize....... ")
-                logger.info(f"Intialized server:{replica}")
-                # shardsinserver = queryHandler.getShardsinServer(server)
-                logger.info(f"shards list inside server : {shradinReplica}")
-                serverPayload_json = {
-                    "schema": schema,
-                    "shards": shradinReplica
-                }
-                logger.info(f"Server paylod at config: {serverPayload_json}")
-                print(serverPayload_json)
-                tries = 0
-                print("Calling config for ",replica)
-                logger.info(f"Calling config for {replica}")
+#                 logger.info("I am waiting for server to Re-initilize....... ")
+#                 logger.info(f"Intialized server:{replica}")
+#                 # shardsinserver = queryHandler.getShardsinServer(server)
+#                 logger.info(f"shards list inside server : {shradinReplica}")
+#                 serverPayload_json = {
+#                     "schema": schema,
+#                     "shards": shradinReplica
+#                 }
+#                 logger.info(f"Server paylod at config: {serverPayload_json}")
+#                 print(serverPayload_json)
+#                 tries = 0
+#                 print("Calling config for ",replica)
+#                 logger.info(f"Calling config for {replica}")
             
-                try:
-                    url = f"http://{replica}:5000/config"
-                    res=requests.post(url,json=serverPayload_json).json()
-                    logger.info(f"Response from {replica} is :{res}")
-                except Exception as e:
-                    logger.info(f"The routed {replica} is not yet Initialized, Retrying ....{tries}")
+#                 try:
+#                     url = f"http://{replica}:5000/config"
+#                     res=requests.post(url,json=serverPayload_json).json()
+#                     logger.info(f"Response from {replica} is :{res}")
+#                 except Exception as e:
+#                     logger.info(f"The routed {replica} is not yet Initialized, Retrying ....{tries}")
 
-                shardsToCopy = queryHandler.getShardsinServer(replica)
-                for shard in shardsToCopy:
-                    serverToCopyFrom = select_random_elements(queryHandler.whereIsShard(shard),[replica],len(queryHandler.whereIsShard(shard))-1)
-                    copyRES = {}
-                    for oldserver in serverToCopyFrom:
-                        logger.info(f"Starting data migration from {oldserver} to new server {replica}")
-                        copyJSON = {
-                            "shards" : [shard]
-                        }
-                        url = f"http://{oldserver}:5000/copy"
-                        copyRES = requests.get(url,json=copyJSON).json()
-                        # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
-                        logger.info(f"Fetched data from {oldserver}: {copyRES}")
-                        if copyRES["status"] == "success":
-                            break
-                    logger.info(f"Starting Data migration from {oldserver} of {shard} for {replica}")
-                    data = copyRES[shard]
-                    writeJSON ={
-                        "shard": shard,
-                        "curr_idx" : 0,
-                        "data": data
-                    }
-                    logger.info(f"Json for wrtting the data to newly added {replica}:{writeJSON}")
+#                 shardsToCopy = queryHandler.getShardsinServer(replica)
+#                 for shard in shardsToCopy:
+#                     serverToCopyFrom = select_random_elements(queryHandler.whereIsShard(shard),[replica],len(queryHandler.whereIsShard(shard))-1)
+#                     copyRES = {}
+#                     for oldserver in serverToCopyFrom:
+#                         logger.info(f"Starting data migration from {oldserver} to new server {replica}")
+#                         copyJSON = {
+#                             "shards" : [shard]
+#                         }
+#                         url = f"http://{oldserver}:5000/copy"
+#                         copyRES = requests.get(url,json=copyJSON).json()
+#                         # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
+#                         logger.info(f"Fetched data from {oldserver}: {copyRES}")
+#                         if copyRES["status"] == "success":
+#                             break
+#                     logger.info(f"Starting Data migration from {oldserver} of {shard} for {replica}")
+#                     data = copyRES[shard]
+#                     writeJSON ={
+#                         "shard": shard,
+#                         "curr_idx" : 0,
+#                         "data": data
+#                     }
+#                     logger.info(f"Json for wrtting the data to newly added {replica}:{writeJSON}")
 
-                    url = f"http://{replica}:5000/write"
-                    writeRES = requests.post(url, json=writeJSON).json()
+#                     url = f"http://{replica}:5000/write"
+#                     writeRES = requests.post(url, json=writeJSON).json()
 
-                    logger.info(f"Response from {replica} is : {writeRES}")
-                    logger.info(f"Copied data of {shard} from {oldserver} to {replica}")
-                # if replica not in queryHandler.getServerList():
-                #     #handled: skipped if server is already present(valid for second time init call)
-                #     if replica.find("[") != -1:
-                #         #Handled Server[5] Case
-                #         while True:
-                #             #if randomly choosed server is present in keyist
-                #             serverName = f"Server{random.randint(0,999999999)}" 
-                #             os.system(f'sudo docker run --name {serverName} --network net1 --network-alias {serverName} -e "SERVER_ID={serverName}" -d server:latest')
-                #             replicas.append(serverName)
-                #             if serverName != replica :
-                #                 #replaced the server key information with randomly choosed name
-                #                 replicas[serverName] = replicas[replica]
-                #                 del replicas[replica]
-                #             break
-                #     else:
-                #         os.system(f'sudo docker run --name {replica} --network net1 --network-alias {replica} -e "SERVER_ID={replica}" -d server:latest')
-                #         replicas.append(replica)
-                #     logger.info(f"Container {replica} is added. New available server : {replicas}")
+#                     logger.info(f"Response from {replica} is : {writeRES}")
+#                     logger.info(f"Copied data of {shard} from {oldserver} to {replica}")
+#                 # if replica not in queryHandler.getServerList():
+#                 #     #handled: skipped if server is already present(valid for second time init call)
+#                 #     if replica.find("[") != -1:
+#                 #         #Handled Server[5] Case
+#                 #         while True:
+#                 #             #if randomly choosed server is present in keyist
+#                 #             serverName = f"Server{random.randint(0,999999999)}" 
+#                 #             os.system(f'sudo docker run --name {serverName} --network net1 --network-alias {serverName} -e "SERVER_ID={serverName}" -d server:latest')
+#                 #             replicas.append(serverName)
+#                 #             if serverName != replica :
+#                 #                 #replaced the server key information with randomly choosed name
+#                 #                 replicas[serverName] = replicas[replica]
+#                 #                 del replicas[replica]
+#                 #             break
+#                 #     else:
+#                 #         os.system(f'sudo docker run --name {replica} --network net1 --network-alias {replica} -e "SERVER_ID={replica}" -d server:latest')
+#                 #         replicas.append(replica)
+#                 #     logger.info(f"Container {replica} is added. New available server : {replicas}")
 
-                if len(res)==0:
-                    print(f"Unable to start {replica}")
-                else:
-                    print(f"successfully started {replica}")
+#                 if len(res)==0:
+#                     print(f"Unable to start {replica}")
+#                 else:
+#                     print(f"successfully started {replica}")
                     
 
-        ####################Respwn Method 2###############################
+#         ####################Respwn Method 2###############################
 
-        # missingContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
-        # missingContainerOut = missingContainerOut[:len(missingContainerOut)-1] 
-        # for replica in replicas:
-        #     if replica not in missingContainerOut:
-        #         print(f"{replica} is failed initiate, Trying to respwn")
-        #         res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
+#         # missingContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
+#         # missingContainerOut = missingContainerOut[:len(missingContainerOut)-1] 
+#         # for replica in replicas:
+#         #     if replica not in missingContainerOut:
+#         #         print(f"{replica} is failed initiate, Trying to respwn")
+#         #         res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
 
-        #         if len(res)==0:
-        #             print(f"Unable to start {replica}")
-        #         else:
-        #             print(f"successfully started {replica}")
+#         #         if len(res)==0:
+#         #             print(f"Unable to start {replica}")
+#         #         else:
+#         #             print(f"successfully started {replica}")
 
-        ################Remove Unwanted container or respwn previous container automatically #############################
-        extraContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
-        extraContainerOut = extraContainerOut[:len(extraContainerOut)-1]
-        for container in extraContainerOut:
-            if container not in replicas and container=="loadbalancer":
-                os.system(f"sudo docker stop {container} && sudo docker rm {container}")
-        time.sleep(5)
+#         ################Remove Unwanted container or respwn previous container automatically #############################
+#         extraContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
+#         extraContainerOut = extraContainerOut[:len(extraContainerOut)-1]
+#         for container in extraContainerOut:
+#             if container not in replicas and container=="loadbalancer":
+#                 os.system(f"sudo docker stop {container} && sudo docker rm {container}")
+#         time.sleep(5)
     
 
-############### Calling Server thread ###############
-server_thread = threading.Thread(target=replica_status)
-server_thread.start()
-# server_thread = threading.Thread(target=replica_status,args=(replicas,))
+# ############### Calling Server thread ###############
+# server_thread = threading.Thread(target=replica_status)
 # server_thread.start()
+# # server_thread = threading.Thread(target=replica_status,args=(replicas,))
+# # server_thread.start()
 
 
 
@@ -372,13 +374,21 @@ def initialize_database():
         print("updated shardT")
         queryHandler.InsertLBmapT(row=servers)
         print("inserted values to tables")
+
+        #Select Primary Server through Random func
+        for shard in shards:
+            id = shard['Shard_id']
+            serverContainer = queryHandler.whereIsShard(id)
+            pServer = random.choice(serverContainer)
+            queryHandler.changePrimary(pServer,id)
+
         # Initialize mutex locks for each shard
         for shard in shards:
             id = shard['Shard_id']
             shardServerMap[id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
             serverContainer = queryHandler.whereIsShard(id)
-            print(f"servers for a shard {shard}: {serverContainer}")
-            logger.info(f"servers for a shard:{serverContainer}")
+            # print(f"servers for a shard {shard}: {serverContainer}")
+            logger.info(f"servers for a shard {shard}:{serverContainer}")
             for server in serverContainer:
                 shardServerMap[id].add_server_container(server)
         print(shardServerMap)
@@ -476,6 +486,8 @@ def add_servers():
         new_shards = payload_json["new_shards"]
         servers = payload_json["servers"]
 
+        
+
         # Simple sanity checks on the request payload
         if n > len(servers):
             error_response = {
@@ -526,6 +538,14 @@ def add_servers():
         logger.info("Inserted Server to mapT tables for newly added servers")
         #add new server details
 
+        #Select Primary Server through Random func
+        for shard in new_shards:
+            id = shard['Shard_id']
+            serverContainer = queryHandler.whereIsShard(id)
+            pServer = random.choice(serverContainer)
+            queryHandler.changePrimary(pServer,id)
+            logger.info(f"Primary server {pServer} for shard {id}")
+
         for shard in new_shards:
             shard_id = shard['Shard_id']
             shardServerMap[shard_id] = ConsistentHashMap(num_containers=0, total_slots= TOTAL_SLOTS, num_virtual_servers=NUM_VIRTUAL_SERVERS)
@@ -571,23 +591,26 @@ def add_servers():
                     logger.info(f"Shard : {shard} in Serverforshard: {serverForShard}")
                     # currID,___ = queryHandler.getCurrIdx(shardName=shard)
                     copyRES = {}
-                    for oldserver in serverForShard[shard]:
-                        logger.info(f"Starting data migration from {oldserver} to new server {server}")
-                        copyJSON = {
-                            "shards" : [shard]
-                        }
-                        url = f"http://{oldserver}:5000/copy"
-                        copyRES = requests.get(url,json=copyJSON).json()
-                        # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
-                        logger.info(f"Fetched data from {oldserver}: {copyRES}")
-                        if copyRES["status"] == "success":
-                            break
-                    logger.info(f"Starting Data migration from {oldserver} of {shard} for {server}")
+                    # for oldserver in serverForShard[shard]:
+                    primaryServer = queryHandler.getPrimary(shard)
+                    logger.info(f"Starting data Copying from {primaryServer} to new server {server}")
+                    copyJSON = {
+                        "shards" : [shard]
+                    }
+                    url = f"http://{primaryServer}:5000/copy"
+                    copyRES = requests.get(url,json=copyJSON).json()
+                    # logger.info(f"Copy endpoint of {oldserver} gave response {copyRES}")
+                    logger.info(f"Fetched data from {primaryServer}: {copyRES}")
+                    if copyRES["status"] != "success":
+                        return jsonify({"error":f"Could not fetch data from primary server {primaryServer} for shard- {shard}"})
+                    logger.info(f"Starting Data Writing from {primaryServer} of {shard} for {server}")
                     data = copyRES[shard]
+
                     writeJSON ={
                         "shard": shard,
                         "curr_idx" : 0,
-                        "data": data
+                        "data": data,
+                        "slaves":[]
                     }
                     logger.info(f"Json for wrtting the data to newly added {server}:{writeJSON}")
 
@@ -595,7 +618,7 @@ def add_servers():
                     writeRES = requests.post(url, json=writeJSON).json()
 
                     logger.info(f"Response from {server} is : {writeRES}")
-                    logger.info(f"Copied data of {shard} from {oldserver} to {server}")
+                    logger.info(f"Copied data of {shard} from {primaryServer} to {server}")
                     queryHandler.updateCurrIdx(writeRES["current_idx"],shardName=shard)
                     logger.info("Updated current index in newly added servers")
 
@@ -656,7 +679,7 @@ def remove_servers():
         replicas = select_random_elements(replicas,servers_to_remove,len(servers) - len(servers_to_remove))
         logger.info(f"after removal - {replicas}")
         
-        # delect from consistant hashmaps shardServerMap
+        # delete from consistant hashmaps shardServerMap
         for server in servers_to_remove:
             for shard in queryHandler.getShardsinServer(server):
                 shardServerMap[shard].remove_server_container(server)
@@ -668,8 +691,10 @@ def remove_servers():
         for server in servers_to_remove:
             for shard in queryHandler.getShardsinServer(server):
                 if shard not in list(deletedShards.keys()):
-                    deletedShards[shard] = []
-                deletedShards[shard].append(server)
+                    deletedShards[shard] = {}
+                    deletedShards[shard]["servers"] = []
+                    deletedShards[shard]["primary"] = queryHandler.getPrimary(shard)
+                deletedShards[shard]["servers"].append(server)
             queryHandler.deleteServer(server)
         afterDel = queryHandler.getShardList()
         logger.info(f"potential danger - {deletedShards}")
@@ -701,15 +726,17 @@ def remove_servers():
             copyJSON = {
                 "shards" : [shard]
             }
-            logger.info(f"copy JSON - {copyJSON}")
-            url = f"http://{deletedShards[shard][0]}:5000/copy"
+            old_primary = deletedShards[shard]["primary"]
+            logger.info(f"copy JSON - {copyJSON} copying from {old_primary}")
+            url = f"http://{old_primary}:5000/copy"
             copyRES = requests.get(url,json=copyJSON).json()
             data = copyRES[shard]            
             #write content to new server
             writeJSON ={
                 "shard": shard,
                 "curr_idx" : 0,
-                "data": data
+                "data": data,
+                "slaves":[]
             }
             for newLoc in randomServer:
                 url = f"http://{newLoc}:5000/write"
@@ -722,6 +749,33 @@ def remove_servers():
                 queryHandler.nrq(f"INSERT INTO mapT (Shard_id, Server_id) VALUES ('{str(shard)}','{str(newLoc)}')")
                 #update consistant hashmap
                 shardServerMap[shard].add_server_container(newLoc)
+            
+        for shard in queryHandler.getShardList():
+            logger.info(f"Running leader election for {shard}")
+            try:
+                old_primary = queryHandler.getPrimary(shard)
+            except Exception as e:
+                old_primary = ""
+            logger.info(f"Old Primary {old_primary} for {shard}")
+            serverList = queryHandler.whereIsShard(shard)
+            logger.info(f"candidates for new primary for {shard} are {serverList}")
+            request_json ={
+                "shard": shard,
+                "servers": serverList,
+                "old_primary": old_primary
+            }
+            try:
+                url = "http://shardmanager:5000/primary_elect"
+                res = requests.get(url, json = request_json).json()
+                if res["status"] == "success":
+                    new_primary = res["primary"]
+                    logger.info(f"New Primary {new_primary} for {shard}")
+                    queryHandler.changePrimary(new_primary,shard)
+                else:
+                    logger.info(f"primary elect endpoint gives wrong return")
+            except Exception as e:
+                logger.info(f"primary elect endpoint not working")
+                return jsonify({"error": str(e)}),500
 
         # kill server containers
         for server in servers_to_remove:
@@ -826,29 +880,41 @@ def write_data():
             logger.info("Mutex lock accquired")
             try:
                 # Get all servers having replicas of the shard
+                primaryServer = queryHandler.getPrimary(shardID=shard_id)
                 serverList = queryHandler.whereIsShard(shardID=shard_id)
+                serverList.remove(primaryServer)
+                logger.info(f"{primaryServer} is Primary for {shard_id}.")
+                logger.info(f"Slave list  is {serverList} for {shard_id}.")
+                
                 # Write entries in all servers of the shard
-                for server in serverList:
+                # for server in serverList:
                 # write_successful = write_entries_to_servers(servers, entry)
-                    currID,___ = queryHandler.getCurrIdx(shardName=shard_id)
-                    serverPayload_json ={
-                    "shard" :f"{shard_id}",
-                    "curr_idx" : currID,
-                    "data" : [entry]
+                currID,___ = queryHandler.getCurrIdx(shardName=shard_id)
+                
+                serverPayload_json ={
+                "shard" :shard_id,
+                "curr_idx" : currID,
+                "data" : [entry],
+                "slaves": serverList
+                }
+                logger.info(f"payload - {serverPayload_json}")
+                logger.info(f"{shard_id} is available on {primaryServer}")
+                try:
+                    url = f"http://{primaryServer}:5000/write"
+                    res=requests.post(url,json=serverPayload_json).json()
+                    logger.info(f"Response from {primaryServer} is :{res}")
+                    success_count+=1
+                except Exception as e:
+                    logger.info(f"The Data entrie is not added with stud_id {stud_id} in shard_id {shard_id} on {primaryServer}")
+                    error_response = {
+                        "message": f"Error during writing data: {str(e)}",
+                        "status": "error"
                     }
-                    logger.info(f"payload - {serverPayload_json}")
-                    logger.info(f"{shard_id} is available on {server}")
-                    try:
-                        url = f"http://{server}:5000/write"
-                        res=requests.post(url,json=serverPayload_json).json()
-                        logger.info(f"Response from {server} is :{res}")
-                        success_count+=1
-                    except Exception as e:
-                        logger.info(f"The Data entrie is not added with stud_id {stud_id} in shard_id {shard_id} on {server}")
+                    return jsonify(error_response), 500
 
-                    #update currIDX
-                    queryHandler.updateCurrIdx(currID+1,shardName=shard_id)
-                    logger.info("updated current index")
+                #update currIDX
+                queryHandler.updateCurrIdx(currID+1,shardName=shard_id)
+                logger.info("updated current index")
             finally:
                 # Release the mutex lock for the shard
                 mutex_lock.release()
@@ -902,30 +968,37 @@ def update_data():
 
         try:
             shardName = get_shard_id(stud_id)
-            servers = queryHandler.whereIsShard(shardName)
-             # Acquire mutex lock for the shard
+            # Get all servers having replicas of the shard
+            primaryServer = queryHandler.getPrimary(shardID=shardName)
+            serverList = queryHandler.whereIsShard(shardID=shardName)
+            serverList.remove(primaryServer)
+            logger.info(f"{primaryServer} is Primary for {shardName}.")
+            logger.info(f"Slave list  is {serverList} for {shardName}.")             # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shardName]
             mutex_lock.acquire()
             updateShard = 0
             serverPayload_json ={
                     "shard" :shardName,
                     "Stud_id" :stud_id,
-                    "data" : data
+                    "data" : data,
+                    "slaves": serverList
             }
-            for server in servers:
-                
-                try:
-                    url = f"http://{server}:5000/update"
-                    res=requests.put(url,json=serverPayload_json).json()
-                    logger.info(f"Response from {server} is :{res}")
-                    updateShard+=1
-                except Exception as e:
-                    logger.info(f"The stud_id {stud_id} is not updated on {server}")
+            # for server in servers:
+            
+            try:
+                url = f"http://{primaryServer}:5000/update"
+                res=requests.put(url,json=serverPayload_json).json()
+                logger.info(f"Response from {primaryServer} is :{res}")
+                updateShard+=1
+            except Exception as e:
+                logger.info(f"The stud_id {stud_id} is not updated on {primaryServer}")
 
 
-            if updateShard==len(servers):
+            if updateShard:
+                success=res["successCount"]
+                failed = res["FailedServer"]
                 response_data = {
-                    "message": f"Data entry for Stud_id: {stud_id} updated",
+                    "message": f"Data entry for Stud_id: {stud_id} updated in {success}, Failed in {failed}",
                     "status": "success"
                 }
             else:
@@ -934,6 +1007,7 @@ def update_data():
                     "status": "failure"
                 }
 
+                return jsonify(response_data), 500
             return jsonify(response_data), 200
 
         finally:
@@ -959,32 +1033,37 @@ def delete_data():
             # Get the shard id for the provided Stud id
             shardName = get_shard_id(stud_id=stud_id)
             logger.info(f"{stud_id} is in {shardName}")
-            servers = queryHandler.whereIsShard(shardName)
-            logger.info(f"{shardName} is in {servers}")
-             # Acquire mutex lock for the shard
+            # call primary server
+            primaryServer = queryHandler.getPrimary(shardID=shardName)
+            serverList = queryHandler.whereIsShard(shardID=shardName)
+            serverList.remove(primaryServer)
+            logger.info(f"{primaryServer} is Primary for {shardName}.")
+            logger.info(f"Slave list  is {serverList} for {shardName}.") 
+            # Acquire mutex lock for the shard
             mutex_lock = mutex_locks[shardName]
             mutex_lock.acquire()
             logger.info(f"{shardName} Mutex lock acquired")
-            updateShard = 0
             serverPayload_json ={
-                    "shard" :shardName,
-                    "Stud_id" :stud_id
+                "shard" :shardName,
+                "Stud_id" :stud_id,
+                "slaves": serverList
+                
             }
-            for server in servers:
-                currID,___ = queryHandler.getCurrIdx(shardName=shardName)
-                try:
-                    url = f"http://{server}:5000/del"
-                    res=requests.delete(url,json=serverPayload_json).json()
-                    logger.info(f"Response from {server} is :{res}")
-                    updateShard+=1
-                except Exception as e:
-                    logger.info(f"The stud_id {stud_id} is deleted on {server}")
+            
+            currID,___ = queryHandler.getCurrIdx(shardName=shardName)
+            logger.info(f"payload - {serverPayload_json}")
+            url = f"http://{primaryServer}:5000/del"
+            res=requests.delete(url,json=serverPayload_json).json()
+            logger.info(f"Response from {primaryServer} is :{res}")
+            
+            if res["status"] == "success":
                 #update currIDX
+                success=res["successCount"]
+                failed = res["FailedServer"]
                 queryHandler.updateCurrIdx(currID-1,shardName=shardName)
                 logger.info("updated current index")
-            if updateShard:
                 response_data = {
-                    "message": f"Data entry with Stud_id:{stud_id} removed from all replicas",
+                    "message": f"Data entry with Stud_id:{stud_id} removed in {success}, Failed in {failed}",
                     "status": "success"
                 }
             else:

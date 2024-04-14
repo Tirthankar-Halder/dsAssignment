@@ -11,55 +11,6 @@ import mysql.connector
 # loggerQuery = logging.getLogger()
 # loggerQuery.setLevel(logging.DEBUG)
 
-
-# class DataHandler:
-#     def __init__(self,columns=None,dtypes=None,is_SQL=False,SQL_handle=None,table_name=None):
-#         self.columns=columns
-#         self.dtypes=dtypes
-#         self.is_SQL=is_SQL
-#         self.SQL_handle=SQL_handle
-#         self._setup(table_name)
-
-#     def _setup(self,table_name):
-#         if not self.is_SQL:
-#             self.table=pd.DataFrame(columns=self.columns)
-#         else:
-#             self.table_name=self.SQL_handle.jobrunner.apply(self.SQL_handle.hasTable,(table_name,self.columns,self.dtypes))
-    
-#     @property
-#     def Count(self):
-#         if not self.is_SQL:
-#             return self.table.shape[0]
-#         else:
-#             return self.SQL_handle.jobrunner.apply(self.SQL_handle.Count,(self.table_name,))
-
-#     def Insert(self,row):
-#         if not self.is_SQL:
-#             id=self.table.shape[0]
-#             self.table.loc[self.table.shape[0]]=row
-#         else:
-#             id=self.SQL_handle.jobrunner.apply(self.SQL_handle.Insert,(self.table_name,row))
-#         return id
-
-#     def Update(self,idx,col,val):
-#         if not self.is_SQL:
-#             self.table.loc[idx,col]=val
-#         else:
-#             self.SQL_handle.jobrunner.apply(self.SQL_handle.setVal,(self.table_name,idx,col,val))
-
-#     def GetAT(self,idx,col):
-#         if not self.is_SQL:
-#             return self.table.loc[idx,col]
-#         else:
-#             return self.SQL_handle.jobrunner.apply(self.SQL_handle.getVal,(self.table_name,idx,col))
-
-#     def IncrementBy(self,idx,col,by):
-#         if not self.is_SQL:
-#             self.table.loc[idx,col]+=by
-#         else:
-#             self.SQL_handle.jobrunner.apply(self.SQL_handle.IncrementBy,(self.table_name,idx,col,by))
-
-
 class SQLHandler:
     def __init__(self,host='localhost',user='root',password='password',db='shardDB'):
         self.host=host
@@ -118,26 +69,36 @@ class SQLHandler:
         print(res)
         if dbname in [r[0] for r in res]:
             self.nrq(f"DROP DATABASE {dbname}")
+    def changePrimary(self,serverID,shardID):
+        self.nrq(f"UPDATE mapT SET PrimaryServer = CASE WHEN Server_id = '{serverID}' THEN 1 ELSE 0 END WHERE Shard_id = '{shardID}'; ")
 
+    def getPrimary(self,shardID):
+        print(shardID)
+        row = self.query(f"SELECT Server_id from mapT WHERE Shard_id = '{shardID}' AND PrimaryServer = 1;")
+        print(row)
+        return row[0][0]
+    
     def hasTable(self,tabname=None,columns=None,dtypes=None,primaryKeyFlag=True):
         res=self.query("SHOW TABLES")
         print(res)
         if primaryKeyFlag:
             if tabname not in [r[0] for r in res]:
-                dmap={'Number':'INT','String':'VARCHAR(32)'}
+                dmap={'Number':'INT','String':'VARCHAR(32)','Boolean':'BOOLEAN DEFAULT 0'}
+                # print(dmap)
                 col_config=''
                 flag =True
                 for c,d in zip(columns,dtypes):
+                    # print(c,d)
                     if flag:
                         col_config+=f" {c} {dmap[d]} PRIMARY KEY NOT NULL"
                         flag = False
                     else: 
                         col_config+=f", {c} {dmap[d]}"
-                print(f"CREATE TABLE {tabname} ({col_config});")
-                self.nrq(f"CREATE TABLE {tabname} ({col_config});")
+                print(f"CREATE TABLE {tabname} ({col_config} );")
+                self.nrq(f"CREATE TABLE {tabname} ( {col_config} );")
         else:
             if tabname not in [r[0] for r in res]:
-                dmap={'Number':'INT','String':'VARCHAR(32)'}
+                dmap={'Number':'INT','String':'VARCHAR(32)','Boolean':'BOOLEAN DEFAULT 0'}
                 col_config=''
                 flag =True
                 for c,d in zip(columns,dtypes):
@@ -146,8 +107,8 @@ class SQLHandler:
                         flag = False
                     else: 
                         col_config+=f", {c} {dmap[d]}"
-                print(f"CREATE TABLE {tabname} ({col_config});")
-                self.nrq(f"CREATE TABLE {tabname} ({col_config});")
+                print(f"CREATE TABLE {tabname} ({col_config} );")
+                self.nrq(f"CREATE TABLE {tabname} ( {col_config} );")
         return tabname
 
     def fetchTable(self):
@@ -201,8 +162,8 @@ class SQLHandler:
         #     print(data)
         for data in row:
             try:
-                # print(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])},0)")
                 self.nrq(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])},0)")
+                # self.nrq(f"INSERT INTO shardT (Shard_id, Stud_id_low, Shard_size, Valid_idx) VALUES ('{str(data['Shard_id'])}',{int(data['Stud_id_low'])},{int(data['Shard_size'])},{})")
                 c+=1
             except Exception as e:
                 error+= str(e)
@@ -299,7 +260,7 @@ class SQLHandler:
             res = self.query(f"SELECT Stud_id_low, Shard_id, Shard_size FROM shardT")
             messgae =[]
             for row in res:
-                messgae.append({"Stud_id_low":row[0],"Shard_id":row[1],"Shard_size":row[2]})
+                messgae.append({"Stud_id_low":row[0],"Shard_id":row[1],"Shard_size":row[2],"primary_server":self.getPrimary(row[1])})
             # print(res)
             return messgae,1
         except Exception as e:

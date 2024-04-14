@@ -9,6 +9,7 @@ build:
 
 loadbalancer:
 	cd ./loadbalancer/ && sudo docker build -t loadbalancer .
+	sudo docker run -t loadbalancer	
 
 up:
 	sudo docker-compose up -d

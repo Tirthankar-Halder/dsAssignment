@@ -11,7 +11,11 @@ Implimenting a Customizable Load Balancer
 <p align="center">
       <img src="assets/assign_2.png" width="70%"/>
 </p>
+## Assignment - III
 
+<p align="center">
+      <img src="assets/assign_3.png" width="70%"/>
+</p>
 # Design
 
 This repository implements a loadbalancer system which uses Consistent Hashmaping technnique for the the allocation of servers and client requests simulteniously further it uses the concept of virtual server of better performence. 
@@ -43,7 +47,8 @@ balancer implementation.
 uses the heartbeat endpoint to identify failures in the set of containers maintained by it. "/copy" endpoint returns all the contents of a particular shard on a particular server. "/read" endpoint returns all the entries within a particular Student ID range. "/write" endpoint inserts entries into the sharded student databse. Once an entry is inserted it can be modified by the "/update" endpoint and can be removed by the "del" endpoint</li>
 
 <li><strong>Shard</strong> The Student databse is sharded to ensure horizontal scalability.</li>
-
+<li><strong>Shard Manager</strong><ol><li>Heartbeat Monitoring: Checks server health by periodically calling the /heartbeat endpoint.</li>
+    <li>Primary Shard Selection: Selects a new primary shard when the existing one fails.</li></ol>
 </ol>
 
 ## File Structure
@@ -51,16 +56,13 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 ```
 ├── assets
 │   ├── assign_1.png
-│   └── assign_2.png
-├── Assignment_2_server
-│   ├── Dockerfile
-│   ├── requirements.txt
-│   ├── server_2.py
-│   ├── studTable.db
-│   └── table1.py
+│   ├── assign_2.png
+│   ├── assign_3.png
+│   └── main_fig.png
 ├── async.py
 ├── automateRequest.ipynb
 ├── docker-compose.yml
+├── folder.txt
 ├── ioasync.ipynb
 ├── loadbalancer
 │   ├── assist.py
@@ -108,14 +110,26 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 │   ├── helper.py
 │   ├── __pycache__
 │   │   ├── assist.cpython-310.pyc
-│   │   └── server.cpython-39.pyc
+│   │   ├── assist.cpython-38.pyc
+│   │   ├── server.cpython-39.pyc
+│   │   └── table.cpython-38.pyc
 │   ├── requirements.txt
+│   ├── requrirements.txt
 │   ├── response.json
+│   ├── server_2.py
 │   ├── serverLog.log
 │   ├── server.py
 │   ├── serverQuery.log
+│   ├── studTable.db
+│   ├── table.py
 │   ├── tempCodeRunnerFile.py
 │   └── test_server.py
+├── shardmanager
+│   ├── assist.py
+│   ├── Dockerfile
+│   ├── requirements.txt
+│   └── shardmanager.py
+├── studTable.db
 ├── taskAna.ipynb
 ├── tempDS
 │   ├── assets
@@ -192,6 +206,10 @@ Here we took default configauration as per Task 2:
         "Server6":["sh3","sh2"]}
     }
 ```
+# Assignment -III
++ <strong>WAL (Write-Ahead Logging)</strong> log files, namely serverLog.log and serverQuery.log, are where both our primary database servers and secondary shards write changes. The primary server replicates these changes to the secondary shards before committing the data. Once the secondary shards acknowledges the receipt of the changes, the primary server commits the changes to maintain consistency across both servers.
++ <strong>/rm</strong> for removing servers, if the no.of servers are more than the length of Hostname then random servers are chosen and removed. If the primary shards fails, then a new primary is chosen from the replicated shards having the most updated log entries. As soon as the downed database server is up, it copies all the shards from the primary shards. 
+
 
 # Challenges
 
@@ -204,6 +222,9 @@ Here we took default configauration as per Task 2:
 ## Assignment - II
 
 + As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7, a colflict will arrise because if we want to distributed 7 shard replicas of  4 shard (Default configauration as per Task 2) then total no of replicas will be 4x7 = 28 which not divisable by 6(Available servers). The ideal no of distribution value comes near 4.3. So we have takes 4 no of replicas to each server to resolve this conflict.
+
+## Assignment -III
++ maintaining WAL files 
 
 # Prerequisites
 
@@ -273,6 +294,8 @@ Here we took default configauration as per Task 2:
     make restart
 
 
+### to send requests
+    automateRequest.ipynb
 
 # Testing
 ## Assignment - I
@@ -406,7 +429,7 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
     server_thread = threading.Thread(target=replica_status)
     server_thread.start()
 # Edge-Cases
-## Assignment - II
+## Assignment - II /Assignment - III
 
 ### Server
 
@@ -422,6 +445,10 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
 + <strong> /add: </strong> Handled the case of adding servers with pre existing shards in which case data in these shards is copied from other servers.
 
 +<strong> /rm: </strong> Handled case where down scaling servers may lead to 
+
+### shardManager 
++<strong>detect_and_update()</strong> If primary server for a shard is removed then also the shard manager should trigger the primary selection from available servers for that shard.
+
 # Contact Me
 
 This is Assignment 1 & 2 of CS60002: Distributed Systems course in IIT Kharagpur, taught by [Dr. Sandip Chakraborty](https://cse.iitkgp.ac.in/~sandipc/).
