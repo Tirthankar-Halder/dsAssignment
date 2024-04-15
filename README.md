@@ -307,68 +307,33 @@ To analyze the performance of the developed distributed database. We have design
 ### Analysis - I
 
 The read and write speed for 10000 writes and 10000 reads in the default configuration given in task 2.
-<table>
-      <tr>
-        <td>Write</td>
-  </tr>
-  <tr>
-    <td><img src="results/Assign2_A1_Write.jpg" alt="Assignment 2 write" width="400"></td>
-    <td><img src="results/Assign3_A1_Write.jpg" alt="Assignment 3 write " width="400"></td>
-  </tr>
-</table>
-<table>
-      <tr>
-        <td>Read</td>
-  </tr>
-  <tr>
-    <td><img src="results/Assign2_A1_Read.jpg" alt="Assignment 2 read" width="400"></td>
-    <td><img src="results/Assign3_A1_Read.jpg" alt="Assignment 3 read " width="400"></td>
-  </tr>
-</table>
+<p align="center">
+      <img src="results/Assign2_A1_Write.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A1_Read.jpg" width="50%"/>
+</p>
 
 ### Analysis - II
 + Increased the number of shard replicas (to 7) from the configuration (init endpoint).
 + The write speed down for 10000 writes and read speed up for 10000 reads.
-<table>
-      <tr>
-        <td>Write</td>
-  </tr>
-  <tr>
-    <td><img src="results/Assign2_A2_Write.jpg" alt="Assignment 2 write" width="400"></td>
-    <td><img src="results/Assign3_A1_Write.jpg" alt="Assignment 3 write" width="400"></td>
-  </tr>
-</table>
-<table>
-      <tr>
-        <td>Read</td>
-  </tr>
-  <tr>
-    <td><img src="results/Assign2_A2_Read.jpg" alt="Assignment 2 read" width="400"></td>
-    <td><img src="results/Assign3_A2_Read.jpg" alt="Assignment 3 read" width="400"></td>
-  </tr>
-</table>
+<p align="center">
+      <img src="results/Assign2_A2_Write.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A2_Read.jpg" width="50%"/>
+</p>
 
 ### Analysis - III
 + Increased the number of Servers (to 10) by adding new servers and increased the number of shards (shard to 6, shard replicas to 8). 
 + The write speed up for 10000 writes and read speed up for 10000 reads.
-<table>
-      <tr>
-        <td>Write</td>
-  </tr>
-  <tr>
-    <td><img src="results/Assign2_A3_Write.jpg" alt="Assignment 2 write" width="400"></td>
-    <td><img src="results/Assign3_A3_Write.jpg" alt="Assignment 3 write" width="400"></td>
-  </tr>
-</table>
-<table>
-      <tr>
-        <td>Read</td>
-  </tr>
-  <tr>
-    <td><img src="results/Assign2_A3_Read.jpg" alt="Assignment 2 read" width="400"></td>
-    <td><img src="results/Assign3_A3_Read.jpg" alt="Assignment 3 read" width="400"></td>
-  </tr>
-</table>
+
+<p align="center">
+      <img src="results/Assign2_A3_Write.jpg" width="50%"/>
+</p>
+<p align="center">
+      <img src="results/Assign2_A3_Read.jpg" width="50%"/>
+</p>
 
 ### Analysis - IV
 #### Liveness and Correctness :
