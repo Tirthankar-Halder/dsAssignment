@@ -310,11 +310,19 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
 <table>
       <tr>
         <td>Write</td>
-        <td>Read</td>
   </tr>
   <tr>
     <td><img src="results/Assign2_A1_Write.jpg" alt="Assignment 2 write" width="400"></td>
-    <td><img src="results/Assign2_A1_Read.jpg" alt="Assignment 2 read " width="400"></td>
+    <td><img src="results/Assign3_A1_Write.jpg" alt="Assignment 3 write " width="400"></td>
+  </tr>
+</table>
+<table>
+      <tr>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A1_Read.jpg" alt="Assignment 2 read" width="400"></td>
+    <td><img src="results/Assign3_A1_Read.jpg" alt="Assignment 3 read " width="400"></td>
   </tr>
 </table>
 
@@ -322,13 +330,21 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
 + Increased the number of shard replicas (to 7) from the configuration (init endpoint).
 + The write speed down for 10000 writes and read speed up for 10000 reads.
 <table>
-<tr>
+      <tr>
         <td>Write</td>
-        <td>Read</td>
   </tr>
   <tr>
     <td><img src="results/Assign2_A2_Write.jpg" alt="Assignment 2 write" width="400"></td>
-    <td><img src="results/Assign2_A2_Read.jpg" alt="Assignment 2 read " width="400"></td>
+    <td><img src="results/Assign3_A1_Write.jpg" alt="Assignment 3 write" width="400"></td>
+  </tr>
+</table>
+<table>
+      <tr>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A2_Read.jpg" alt="Assignment 2 read" width="400"></td>
+    <td><img src="results/Assign3_A2_Read.jpg" alt="Assignment 3 read" width="400"></td>
   </tr>
 </table>
 
@@ -336,13 +352,21 @@ The read and write speed for 10000 writes and 10000 reads in the default configu
 + Increased the number of Servers (to 10) by adding new servers and increased the number of shards (shard to 6, shard replicas to 8). 
 + The write speed up for 10000 writes and read speed up for 10000 reads.
 <table>
-  <tr>
+      <tr>
         <td>Write</td>
-        <td>Read</td>
   </tr>
   <tr>
     <td><img src="results/Assign2_A3_Write.jpg" alt="Assignment 2 write" width="400"></td>
-    <td><img src="results/Assign2_A3_Read.jpg" alt="Assignment 2 read " width="400"></td>
+    <td><img src="results/Assign3_A3_Write.jpg" alt="Assignment 3 write" width="400"></td>
+  </tr>
+</table>
+<table>
+      <tr>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A3_Read.jpg" alt="Assignment 2 read" width="400"></td>
+    <td><img src="results/Assign3_A3_Read.jpg" alt="Assignment 3 read" width="400"></td>
   </tr>
 </table>
 
