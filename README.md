@@ -213,7 +213,7 @@ Here we took default configauration as per Task 2:
 + As metioned in Task 4: (SubTask-A2)- while increasing no of Shard replicas  to 7, a colflict will arrise because if we want to distributed 7 shard replicas of  4 shard (Default configauration as per Task 2) then total no of replicas will be 4x7 = 28 which not divisable by 6(Available servers). The ideal no of distribution value comes near 4.3. So we have takes 4 no of replicas to each server to resolve this conflict.
 
 ## Assignment -III
-+ maintaining WAL files 
++ maintaining WAL files shardmanger
 
 # Prerequisites
 
@@ -307,33 +307,44 @@ To analyze the performance of the developed distributed database. We have design
 ### Analysis - I
 
 The read and write speed for 10000 writes and 10000 reads in the default configuration given in task 2.
-<p align="center">
-      <img src="results/Assign2_A1_Write.jpg" width="50%"/>
-</p>
-<p align="center">
-      <img src="results/Assign2_A1_Read.jpg" width="50%"/>
-</p>
+<table>
+      <tr>
+        <td>Write</td>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A1_Write.jpg" alt="Assignment 2 write" width="400"></td>
+    <td><img src="results/Assign2_A1_Read.jpg" alt="Assignment 2 read " width="400"></td>
+  </tr>
+</table>
 
 ### Analysis - II
 + Increased the number of shard replicas (to 7) from the configuration (init endpoint).
 + The write speed down for 10000 writes and read speed up for 10000 reads.
-<p align="center">
-      <img src="results/Assign2_A2_Write.jpg" width="50%"/>
-</p>
-<p align="center">
-      <img src="results/Assign2_A2_Read.jpg" width="50%"/>
-</p>
+<table>
+<tr>
+        <td>Write</td>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A2_Write.jpg" alt="Assignment 2 write" width="400"></td>
+    <td><img src="results/Assign2_A2_Read.jpg" alt="Assignment 2 read " width="400"></td>
+  </tr>
+</table>
 
 ### Analysis - III
 + Increased the number of Servers (to 10) by adding new servers and increased the number of shards (shard to 6, shard replicas to 8). 
 + The write speed up for 10000 writes and read speed up for 10000 reads.
-
-<p align="center">
-      <img src="results/Assign2_A3_Write.jpg" width="50%"/>
-</p>
-<p align="center">
-      <img src="results/Assign2_A3_Read.jpg" width="50%"/>
-</p>
+<table>
+  <tr>
+        <td>Write</td>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A3_Write.jpg" alt="Assignment 2 write" width="400"></td>
+    <td><img src="results/Assign2_A3_Read.jpg" alt="Assignment 2 read " width="400"></td>
+  </tr>
+</table>
 
 ### Analysis - IV
 #### Liveness and Correctness :
