@@ -439,6 +439,8 @@ def initialize_database():
         }
 
         # serverInitializaton = True
+        #ShardManager Initializatio
+        # url = "http://shardmanager:5000/config"
 
         return jsonify(response_json), 200
 
@@ -799,6 +801,17 @@ def remove_servers():
             "status": "error"
         }
         return jsonify(error_response), 500
+
+@app.route('/read/<server_id>', methods=['GET'])
+def read_Server_id(server_id):
+    shard = queryHandler.getShardsinServer(serverID=server_id)
+    Payload_json = {
+        'shards': shard
+    }
+    logger.info(f"Fetching details of Server :{server_id}")
+    url = f"http://{server_id}:5000/copy"
+    res=requests.get(url,json=Payload_json).json()
+    return jsonify(res),200
 
 @app.route('/read', methods=['POST'])
 def read_data():
