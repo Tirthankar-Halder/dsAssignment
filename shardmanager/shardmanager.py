@@ -26,6 +26,7 @@ def select_random_elements(A, B, n):
     return random.sample(difference_list, min(num_elements_to_select,len(difference_list)))
 def getShardsinServer(res,replica):
     return res["servers"][replica]
+
 def whereIsShard(res,shard):
     shards = res["shards"]
     server = []
@@ -39,19 +40,22 @@ def whereIsShard(res,shard):
 
 def replica_status():
     # global serverInitializaton
-    
     while True:
+        
         ####################Respwn Method 1###############################
         try:
             url = "http://loadbalancer:5000/status"
             res=requests.get(url).json()
             schema = res["schema"]
             replicas = res["servers"]
+            logger.info(res)
+            time.sleep(3)
         except :
+            time.sleep(10)
             continue
 
-        for replica in replicas:
-
+        for replica in replicas.keys():
+            logger.info(f"Replica:{replica}")
             # alive = None
             alive = os.system(f"ping -c 1 {replica}")
             logger.info(f"Livenness of {replica} is {alive}, Available replica {replicas}")
@@ -61,7 +65,7 @@ def replica_status():
                 shradinReplica = getShardsinServer(res,replica)
                 res=os.popen(f"sudo docker run --name {replica} --network net1 --network-alias {replica} -e 'SERVER_ID={replica}' -d server:latest").read()
                 # res=os.popen(f"sudo docker restart {replica}").read()
-                time.sleep(20)
+                # time.sleep(20)
 
                 logger.info("I am waiting for server to Re-initilize....... ")
                 logger.info(f"Intialized server:{replica}")
@@ -153,12 +157,13 @@ def replica_status():
         #             print(f"successfully started {replica}")
 
         ################Remove Unwanted container or respwn previous container automatically #############################
-        extraContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
-        extraContainerOut = extraContainerOut[:len(extraContainerOut)-1]
-        for container in extraContainerOut:
-            if container not in replicas and container=="loadbalancer":
-                os.system(f"sudo docker stop {container} && sudo docker rm {container}")
-        time.sleep(5)
+        
+        # extraContainerOut = os.popen("sudo docker ps --format '[[ .Names ]]'").read().split("\n")
+        # extraContainerOut = extraContainerOut[:len(extraContainerOut)-1]
+        # for container in extraContainerOut:
+        #     if container not in replicas and container=="loadbalancer":
+        #         os.system(f"sudo docker stop {container} && sudo docker rm {container}")
+        # time.sleep(5)
     
 
 ############### Calling Server thread ###############

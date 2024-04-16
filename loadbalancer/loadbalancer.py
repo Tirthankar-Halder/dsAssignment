@@ -55,6 +55,7 @@ columnsName = shardT_json['schema']['columns']
 dtypes = shardT_json['schema']['dtypes']
 queryHandler.hasTable(tabname="shardT",columns=columnsName,dtypes=dtypes,primaryKeyFlag=False)
 
+# os.system('sudo docker run --name shardmanager --network net1 --network-alias shardmanager -d shardmanager:latest')
 # # Server Replica Initialization## 
 # for replica in replicas:
 #     # consistent_hash_map.add_server_container(int(replica[7]))

@@ -1,6 +1,7 @@
 all:
 	sudo docker-compose build
 	cd ./server/ && sudo docker build -t server .
+	# cd ./shardmanager/ && sudo docker build -t shardmanager .
 	sudo docker-compose up 
 
 build:
