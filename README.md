@@ -51,20 +51,21 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 <li><strong>Shard</strong> The Student databse is sharded to ensure horizontal scalability.</li>
 <li><strong>Shard Manager</strong><ol><li>Heartbeat Monitoring: Checks server health by periodically calling the /heartbeat endpoint.</li>
     <li>Primary Shard Selection: Selects a new primary shard when the existing one fails.</li></ol>
-</ol>
+<li><strong>Write-Ahead Logging</strong>(WAL) mechanism for maintaining consistency among the replicas of the shards that are distributed among various servers.WAL is employed to guarantee that no data is lost and that the database can recover to a consistent state after an unexpected shutdown.</li>
 
+</ol>
 ## File Structure
 
 ```
+.
 ├── assets
 │   ├── assign_1.png
 │   ├── assign_2.png
-│   ├── assign_3.png
-│   └── main_fig.png
+│   └── assign_3.png
 ├── async.py
 ├── automateRequest.ipynb
 ├── docker-compose.yml
-├── folder.txt
+├── example.log
 ├── ioasync.ipynb
 ├── loadbalancer
 │   ├── assist.py
@@ -75,11 +76,8 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 │   ├── consistant_HASHMAP_LP.py
 │   ├── consistant_HASHMAP.py
 │   ├── custom-entry.sh
-│   ├── deleteMe.ipynb
-│   ├── deleteMe.py
 │   ├── deploy.sh
 │   ├── Dockerfile
-│   ├── helper.py
 │   ├── loadbalancer.py
 │   ├── __pycache__
 │   │   ├── assist.cpython-310.pyc
@@ -109,29 +107,18 @@ uses the heartbeat endpoint to identify failures in the set of containers mainta
 │   ├── custom-entry.sh
 │   ├── deploy.sh
 │   ├── Dockerfile
-│   ├── helper.py
+│   ├── example.log
 │   ├── __pycache__
 │   │   ├── assist.cpython-310.pyc
-│   │   ├── assist.cpython-38.pyc
-│   │   ├── server.cpython-39.pyc
-│   │   └── table.cpython-38.pyc
+│   │   └── server.cpython-39.pyc
 │   ├── requirements.txt
-│   ├── requrirements.txt
-│   ├── response.json
-│   ├── server_2.py
-│   ├── serverLog.log
 │   ├── server.py
-│   ├── serverQuery.log
-│   ├── studTable.db
-│   ├── table.py
-│   ├── tempCodeRunnerFile.py
-│   └── test_server.py
+│   └── wal.py
 ├── shardmanager
 │   ├── assist.py
 │   ├── Dockerfile
 │   ├── requirements.txt
 │   └── shardmanager.py
-├── studTable.db
 ├── taskAna.ipynb
 ├── tempDS
 │   ├── assets
@@ -296,56 +283,68 @@ Here we took default configauration as per Task 2:
     make restart
 
 
-### to send requests
+### To send requests
     automateRequest.ipynb
 
 # Testing
 ## Assignment - I
 Initially, 10,000 asynchronous requests were sent to the load balancer, which distributed them among the existing three servers. Subsequently, the number of servers was increased by one, and for each iteration, another 10,000 asynchronous requests were sent to the load balancer. Upon analyzing the load balancer's performance, it was observed that it efficiently distributed the requests, effectively managing the network load. 
-+ ### Increasing no of Servers by one:
 The bar plot visually depicts the average number of requests handled by each server.
 Test results are as follows:
-<p align="center">
-      <img src="results/AnalysisServerRemove.jpg" width="50%"/>
-</p>
-
-+ ### Decreasing no of Servers by one:
-<p align="center">
-      <img src="results/AnalysisServerAddition.jpg" width="50%"/>
-</p>
+<table>
+      <tr>
+        <td><strong>Increasing no of Servers by one</strong></td>
+        <td><strong>Decreasing no of Servers by one</strong></td>
+  </tr>
+  <tr>
+    <td><img src="results/AnalysisServerAddition.jpg" alt="Assignment 1 addition " width="400"></td>
+<td><img src="results/AnalysisServerRemove.jpg" alt="Assignment 1 remove" width="400"></td>
+  </tr>
+</table>
 
 ## Assignment - II
 To analyze the performance of the developed distributed database. We have designed following testing enviroment.
 ### Analysis - I
 
 The read and write speed for 10000 writes and 10000 reads in the default configuration given in task 2.
-<p align="center">
-      <img src="results/Assign2_A1_Write.jpg" width="50%"/>
-</p>
-<p align="center">
-      <img src="results/Assign2_A1_Read.jpg" width="50%"/>
-</p>
+<table>
+      <tr>
+        <td>Write</td>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A1_Write.jpg" alt="Assignment 2 write" width="400"></td>
+    <td><img src="results/Assign2_A1_Read.jpg" alt="Assignment 2 read " width="400"></td>
+  </tr>
+</table>
 
 ### Analysis - II
 + Increased the number of shard replicas (to 7) from the configuration (init endpoint).
 + The write speed down for 10000 writes and read speed up for 10000 reads.
-<p align="center">
-      <img src="results/Assign2_A2_Write.jpg" width="50%"/>
-</p>
-<p align="center">
-      <img src="results/Assign2_A2_Read.jpg" width="50%"/>
-</p>
+<table>
+<tr>
+        <td>Write</td>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A2_Write.jpg" alt="Assignment 2 write" width="400"></td>
+    <td><img src="results/Assign2_A2_Read.jpg" alt="Assignment 2 read " width="400"></td>
+  </tr>
+</table>
 
 ### Analysis - III
 + Increased the number of Servers (to 10) by adding new servers and increased the number of shards (shard to 6, shard replicas to 8). 
 + The write speed up for 10000 writes and read speed up for 10000 reads.
-
-<p align="center">
-      <img src="results/Assign2_A3_Write.jpg" width="50%"/>
-</p>
-<p align="center">
-      <img src="results/Assign2_A3_Read.jpg" width="50%"/>
-</p>
+<table>
+  <tr>
+        <td>Write</td>
+        <td>Read</td>
+  </tr>
+  <tr>
+    <td><img src="results/Assign2_A3_Write.jpg" alt="Assignment 2 write" width="400"></td>
+    <td><img src="results/Assign2_A3_Read.jpg" alt="Assignment 2 read " width="400"></td>
+  </tr>
+</table>
 
 ### Analysis - IV
 #### Liveness and Correctness :
